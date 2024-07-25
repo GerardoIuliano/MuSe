@@ -1,5 +1,22 @@
-const Mutation = require('../../mutation')
+const Mutation = require('../../mutation');
 
+/**
+ * UORDOperator is a mutation testing operator designed to replace unary operators in the code.
+ * 
+ * **Purpose**:
+ * The operator focuses on replacing unary operators with their counterparts or removing them to test how such changes affect the behavior of the contract. This helps identify potential issues or vulnerabilities related to unary operations.
+ * 
+ * **How It Works**:
+ * 1. **Identify Unary Operations**: The script searches for occurrences of unary operations in the code.
+ * 2. **Perform Replacements**:
+ *    - **Increment (`++`)**: Replaced with decrement (`--`) and with a space.
+ *    - **Decrement (`--`)**: Replaced with increment (`++`) and with a space.
+ *    - **Unary Minus (`-`)**: Replaced with a space.
+ *    - **Bitwise NOT (`~`)**: Replaced with a space.
+ *    - **Logical NOT (`!`)**: Replaced with a space.
+ * 3. **Create Mutation Instances**: It creates and records mutations reflecting these replacements.
+ * 4. **Return Mutations**: The list of mutations is returned for testing and further analysis.
+ */
 
 function UORDOperator() {
   this.ID = "UORD";
@@ -8,7 +25,7 @@ function UORDOperator() {
 
 UORDOperator.prototype.getMutations = function(file, source, visit) {
   const mutations = [];
-  var ranges = []; //Visited node ranges
+  var ranges = []; // Keeps track of visited node ranges
 
   visit({
     UnaryOperation: (node) => {
@@ -28,12 +45,12 @@ UORDOperator.prototype.getMutations = function(file, source, visit) {
           end = node.range[1] + 1;
         }
 
-        const startLine =  node.loc.end.line;
-        const endLine =  node.loc.start.line;
+        const startLine = node.loc.end.line;
+        const endLine = node.loc.start.line;
         const original = source.slice(start, end);
 
         switch (node.operator) {
-          //UORDa - Unary Operator Replacement (Arithmetic)
+          // Unary Operator Replacement (Arithmetic)
           case "++":
             replacement = original.replace("++", "--");
             replacement2 = original.replace("++", " ");
@@ -48,16 +65,18 @@ UORDOperator.prototype.getMutations = function(file, source, visit) {
           case "~":
             replacement = original.replace("~", " ");
             break;
-          //UORDc - Unary Operator Replacement (Conditional)
+          // Unary Operator Replacement (Conditional)
           case "!":
             replacement = original.replace("!", " ");
             break;
         }
 
-        if (replacement)
+        if (replacement) {
           mutations.push(new Mutation(file, start, end, startLine, endLine, original, replacement, this.ID));
-        if (replacement2)
+        }
+        if (replacement2) {
           mutations.push(new Mutation(file, start, end, startLine, endLine, original, replacement2, this.ID));
+        }
       }
     }
   });

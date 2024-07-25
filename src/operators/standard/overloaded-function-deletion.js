@@ -1,4 +1,19 @@
-const Mutation = require('../../mutation')
+const Mutation = require('../../mutation');
+
+/**
+ * OLFDOperator is a mutation testing operator for deleting overloaded functions in Solidity smart contracts.
+ * 
+ * **Purpose**:
+ * This operator helps identify issues by testing the impact of removing overloaded functions. It is useful for ensuring that the contract's behavior is robust and handles cases where overloaded functions are missing.
+ * 
+ * **How It Works**:
+ * 1. **Identify All Functions**: Collect all functions in the contract.
+ * 2. **Filter Overloaded Functions**: Identify functions with the same name but different signatures.
+ * 3. **Generate Mutations**: Create mutations by removing these overloaded functions.
+ * 
+ * **Mutation Details**:
+ * - Deletes functions that are overloaded and not marked as overridden.
+ */
 
 function OLFDOperator() {
   this.ID = "OLFD";
@@ -16,7 +31,7 @@ OLFDOperator.prototype.getMutations = function(file, source, visit) {
   visitFunctions(mutate);
 
   function visitFunctions(callback) {
-    /*Visit and save all contract functions */
+    // Visit and save all contract functions
     visit({
       FunctionDefinition: (node) => {
         if (!ranges.includes(node.range)) {
@@ -30,18 +45,20 @@ OLFDOperator.prototype.getMutations = function(file, source, visit) {
     callback();
   }
 
-  /*Mutate overloaded functions */
+  // Mutate overloaded functions
   function mutate() {
+    // Identify overloaded functions
     const lookup = contractFunctions.reduce((a, e) => {
       a[e.name] = ++a[e.name] || 0;
       return a;
     }, {});
-    overloadedFunctions = contractFunctions.filter(e => lookup[e.name]);
+    overloadedFunctions = contractFunctions.filter(e => lookup[e.name] > 1);
+
     overloadedFunctions.forEach(node => {
-      //Overridden functions are mutated by ORFD
+      // Overridden functions are not mutated by OLFD
       if (!node.override) {
         var start = node.range[0];
-        var end = node.range[1] +1;
+        var end = node.range[1] + 1;
         const startLine = node.loc.start.line;
         const endLine = node.loc.end.line; 
         const original = source.slice(start, end);

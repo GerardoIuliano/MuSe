@@ -1,11 +1,27 @@
 const Mutation = require("../../mutation");
 
+/**
+ * The FVROperator class implements a mutation operator that targets function visibility in the code.
+ * The FVROperator specifically modifies the visibility of functions (like changing from public to internal) 
+ * to generate new mutants and test how the changes affect the contract's behavior.
+ */
+
 function FVROperator() {
   this.ID = "FVR";
   this.name = "function-visibility-replacement";
 }
 
-FVROperator.prototype.getMutations = function (file, source, visit) {
+/**
+ * The getMutations method generates a list of mutations for the given source code.
+ * It scans the code for function definitions and creates mutations by replacing function visibility
+ * with other visibility levels.
+ *
+ * @param {string} file - The name of the file being mutated.
+ * @param {string} source - The source code of the file.
+ * @param {function} visit - A function to visit nodes in the source code's abstract syntax tree (AST).
+ * @returns {Array} - An array of Mutation objects representing the generated mutations.
+ */
+FVROperator.prototype.getMutations = function(file, source, visit) {
   const mutations = [];
 
   visit({
@@ -16,10 +32,10 @@ FVROperator.prototype.getMutations = function (file, source, visit) {
           const end = node.body.range[0];
           const startLine = node.loc.start.line;
           const endLine = node.body.loc.start.line;
-          const original = source.substring(start, end); //function signature  
+          const original = source.substring(start, end); // Function signature  
           let replacement;
 
-          //Constructor
+          // Handle constructor visibility replacement
           if (node.isConstructor) {
             if (node.visibility === "public") {
               replacement = original.replace("public", "internal");
@@ -27,7 +43,7 @@ FVROperator.prototype.getMutations = function (file, source, visit) {
               replacement = original.replace("internal", "public");
             }
           }
-          //Standard function
+          // Handle standard function visibility replacement
           else {
             switch (node.visibility) {
               case "public":
@@ -48,12 +64,15 @@ FVROperator.prototype.getMutations = function (file, source, visit) {
                 break;
             }
           }
-          if (replacement)
+
+          if (replacement) {
             mutations.push(new Mutation(file, start, end, startLine, endLine, original, replacement, this.ID));
+          }
         }
       }
     }
   });
+
   return mutations;
 };
 
