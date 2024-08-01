@@ -96,4 +96,4 @@ FVROperator.prototype.getMutations = function (file, source, visit) {
   return mutations;
 };
 
-module
+module.exports = FVROperator;
