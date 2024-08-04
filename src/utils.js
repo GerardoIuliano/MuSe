@@ -222,10 +222,6 @@ function getBuildDir() {
   }
 }
 
-function checkVulnerabilities(){
-  console.log(chalk.green("\nPre-test OK.\n"));
-}
-
 
 module.exports = {
   getBuildDir: getBuildDir,
@@ -237,6 +233,5 @@ module.exports = {
   cleanResultsDir: cleanResultsDir,
   cleanTmp: cleanTmp,
   getPackageManager: getPackageManager,
-  checkVulnerabilities: checkVulnerabilities,
   config: config
 };

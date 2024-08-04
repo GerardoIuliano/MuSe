@@ -400,6 +400,46 @@ function testSelection(files) {
   return testsToBeRun;
 }
 
+function check(args){
+  var vulnerabilities = args.map(v => v.toLowerCase());
+  var IDs = new Set(); // IDs of the mutation operators to activate
+
+  console.log();
+
+  if (vulnerabilities.includes("ren")) {
+    ["ETR", "MOC", "MOD", "MOI", "RSD", "SFI", "TOR"].forEach(id => IDs.add(id));
+  }
+  if (vulnerabilities.includes("idv")) {
+    ["AVR", "ACM", "CSC", "DLR", "EHC", "ECS", "GVR", "MOC", "MOD", "MOI", "RVS"].forEach(id => IDs.add(id));
+  }
+  if (vulnerabilities.includes("brg")) {
+    ["AVR", "CSC", "EHC", "GVR", "LSC", "MOC", "MOD", "MOI", "TOR"].forEach(id => IDs.add(id));
+  }
+  if (vulnerabilities.includes("lci")) {
+    ["AVR", "DLR", "EED", "EHC", "FVR", "GVR", "MOC", "MOD", "MOI", "RVS", "TOR", "VVR"].forEach(id => IDs.add(id));
+  }
+  if (vulnerabilities.includes("arv")) {
+    ["AOR", "BOR", "BLR", "CSC", "DLR", "EHC", "FVR", "ILR", "LSC", "MOC", "MOD", "MOI", "RVS", "TOR", "UORD"].forEach(id => IDs.add(id));
+  }
+  if (vulnerabilities.includes("igg")) {
+    ["ACM", "CSC", "ETR", "FVR", "GVR", "LSC", "MOC", "MOD", "MOI", "RVS", "TOR", "UORD"].forEach(id => IDs.add(id));
+  }
+  if (vulnerabilities.includes("ato")) {
+    ["AVR", "FVR", "MOC", "MOD", "MOI", "TOR"].forEach(id => IDs.add(id));
+  }
+  if (vulnerabilities.includes("iou")) {
+    ["AOR", "BOR", "ICM", "ILR", "SFR", "UORD"].forEach(id => IDs.add(id));
+  }
+  var sortedIDs = Array.from(IDs).sort();
+  sortedIDs.forEach(ID => {
+      const success = mutGen.enable(ID);
+      console.log(success ? chalk.bold.yellow(ID) + " enabled." : chalk.red("Error: " + ID + " does not exist."));
+  });
+
+  console.log();
+
+}
+
 module.exports = {
   lookup: lookup,
   mutate: mutate,
@@ -407,5 +447,6 @@ module.exports = {
   test: test,
   list: enabledOperators,
   enable: enableOperator,
-  disable: disableOperator
+  disable: disableOperator,
+  check: check
 }
