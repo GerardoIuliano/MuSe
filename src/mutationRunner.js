@@ -406,28 +406,28 @@ function check(args){
 
   console.log();
 
-  if (vulnerabilities.includes("ren")) {
+  if (vulnerabilities.includes("ren")) { //Reentrancy
     ["ETR", "MOC", "MOD", "MOI", "RSD", "SFI", "TOR"].forEach(id => IDs.add(id));
   }
-  if (vulnerabilities.includes("idv")) {
+  if (vulnerabilities.includes("idv")) { //Improper Data Validation
     ["AVR", "ACM", "CSC", "DLR", "EHC", "ECS", "GVR", "MOC", "MOD", "MOI", "RVS"].forEach(id => IDs.add(id));
   }
-  if (vulnerabilities.includes("brg")) {
+  if (vulnerabilities.includes("brg")) { //Bad random number generation
     ["AVR", "CSC", "EHC", "GVR", "LSC", "MOC", "MOD", "MOI", "TOR"].forEach(id => IDs.add(id));
   }
-  if (vulnerabilities.includes("lci")) {
+  if (vulnerabilities.includes("lci")) { //Leakage of confidential information
     ["AVR", "DLR", "EED", "EHC", "FVR", "GVR", "MOC", "MOD", "MOI", "RVS", "TOR", "VVR"].forEach(id => IDs.add(id));
   }
-  if (vulnerabilities.includes("arv")) {
+  if (vulnerabilities.includes("arv")) { //Assert, require or revert violation
     ["AOR", "BOR", "BLR", "CSC", "DLR", "EHC", "FVR", "ILR", "LSC", "MOC", "MOD", "MOI", "RVS", "TOR", "UORD"].forEach(id => IDs.add(id));
   }
-  if (vulnerabilities.includes("igg")) {
+  if (vulnerabilities.includes("igg")) { //Insufficient gas griefing
     ["ACM", "CSC", "ETR", "FVR", "GVR", "LSC", "MOC", "MOD", "MOI", "RVS", "TOR", "UORD"].forEach(id => IDs.add(id));
   }
-  if (vulnerabilities.includes("ato")) {
+  if (vulnerabilities.includes("ato")) { //Authorization via transaction origin
     ["AVR", "FVR", "MOC", "MOD", "MOI", "TOR"].forEach(id => IDs.add(id));
   }
-  if (vulnerabilities.includes("iou")) {
+  if (vulnerabilities.includes("iou")) { //Integer over or underflow
     ["AOR", "BOR", "ICM", "ILR", "SFR", "UORD"].forEach(id => IDs.add(id));
   }
   var sortedIDs = Array.from(IDs).sort();
