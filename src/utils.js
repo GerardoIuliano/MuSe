@@ -12,12 +12,12 @@ const sumoConfig = require(rootDir + "/sumo-config");
 //Static configuration
 const config = {
   sumoDir: rootDir + "/sumo",
-  sumoInstallPath: rootDir + "/node_modules/@morenabarboni/sumo",
+  sumoInstallPath: rootDir + "/node_modules/@ggflutter/sumo",
   mutantsDir: rootDir + "/sumo/results/mutants",
   reportTxt: rootDir + "/sumo/results/sumo-log.txt",
   resultsDir: rootDir + "/sumo/results",
   baselineDir: rootDir + "/sumo/baseline",
-  mutOpsConfig: rootDir + "/node_modules/@morenabarboni/sumo/src/operators.config.json",
+  mutOpsConfig: rootDir + "/node_modules/@ggflutter/sumo/src/operators.config.json",
   contractsGlob: '/**/*.sol',
   packageManagerGlob: ['/package-lock.json', '/yarn.lock'],
   testsGlob: '/**/*.{js,mjs,sol,ts,py}',

@@ -27,13 +27,31 @@ var buildDir;
 const reporter = new Reporter()
 const tceRunner = new TceRunner()
 const mutGen = new mutationGenerator.MutationOperators([
+  "ACM", "AOD", "AOR", "AVR", "BCRD", "BLR", "BM", "BOR", "CBD", "CCD", "CSC", "DLR", "DOD",
+  "ECR", "ECRVM", "ECS", "EED", "EHC", "ER", "ETR", "FFM", "FVR", "GL", "GVR", "HLR", "ICM",
+  "ILR", "IRR", "LSC", "MCR", "MOC", "MOD", "MOI", "MOR", "NVI", "OLFD", "OMD", "ORFD", "PGI",
+  "PKD", "RFC", "RSD", "RSR", "RVS", "SCEC", "SFD", "SFI", "SFR", "SKD", "SKI", "SLR", "TM",
+  "TOR", "UORD", "US", "VUR", "VVR"
+].map(operator => new mutationGenerator[`${operator}Operator`]()));
+/*
+const mutGen = new mutationGenerator.MutationOperators([
+  "ACM", "AOD", "AOR", "AVR", "BCRD", "BLR", "BM", "BOR", "CBD", "CCD", "CSC", "DLR", "DOD",
+  "ECR", "ECRVM", "ECS", "EED", "EHC", "ER", "ETR", "FFM", "FVR", "GL", "GVR", "HLR", "ICM",
+  "ILR", "IRR", "LSC", "MCR", "MOC", "MOD", "MOI", "MOR", "NVI", "OLFD", "OMD", "ORFD", "PGI",
+  "PKD", "RFC", "RSD", "RSR", "RVS", "SCEC", "SFD", "SFI", "SFR", "SKD", "SKI", "SLR", "TM",
+  "TOR", "UORD", "US", "VUR", "VVR"
+].map(operator => new mutationGenerator[`${operator}Operator`]()));
+*/
+
+/*
+const mutGen = new mutationGenerator.MutationOperators([
   "ACM", "AOR", "AVR", "BCRD", "BLR", "BOR", "CBD", "CCD", "CSC", "DLR",
   "DOD", "ECS", "EED", "EHC", "ER", "ETR", "FVR", "GVR", "HLR", "ILR",
   "ICM", "LSC", "PKD", "MCR", "MOC", "MOD", "MOI", "MOR", "OLFD", "OMD",
   "ORFD", "RSD", "RVS", "SCEC", "SFI", "SFD", "SFR", "SKD", "SKI", "SLR",
   "TOR", "UORD", "VUR", "VVR"
 ].map(operator => new mutationGenerator[`${operator}Operator`]()));
-
+ */
 
 /**
  * Setup operations
@@ -407,28 +425,28 @@ function check(args){
   console.log();
 
   if (vulnerabilities.includes("ren")) { //Reentrancy
-    ["ETR", "MOC", "MOD", "MOI", "RSD", "SFI", "TOR"].forEach(id => IDs.add(id));
+    ["ECR", "ETR", "FFM", "MOC", "MOD", "MOI", "RFC", "RSD", "SFI", "TOR"].forEach(id => IDs.add(id));
   }
   if (vulnerabilities.includes("idv")) { //Improper Data Validation
-    ["AVR", "ACM", "CSC", "DLR", "EHC", "ECS", "GVR", "MOC", "MOD", "MOI", "RVS"].forEach(id => IDs.add(id));
+    ["AVR", "ACM", "CSC", "DLR", "ECRVM", "EHC", "ECS", "GVR", "IRR", "MOC", "MOD", "MOI", "NVI", "RVS"].forEach(id => IDs.add(id));
   }
   if (vulnerabilities.includes("brg")) { //Bad random number generation
-    ["AVR", "CSC", "EHC", "GVR", "LSC", "MOC", "MOD", "MOI", "TOR"].forEach(id => IDs.add(id));
+    ["AVR", "BM", "CSC", "EHC", "GVR", "LSC", "MOC", "MOD", "MOI", "RSR", "TM", "TOR"].forEach(id => IDs.add(id));
   }
   if (vulnerabilities.includes("lci")) { //Leakage of confidential information
-    ["AVR", "DLR", "EED", "EHC", "FVR", "GVR", "MOC", "MOD", "MOI", "RVS", "TOR", "VVR"].forEach(id => IDs.add(id));
+    ["AVR", "DLR", "EED", "EHC", "FVR", "GVR", "MOC", "MOD", "MOI", "PGI", "RVS", "TOR", "US", "VVR"].forEach(id => IDs.add(id));
   }
   if (vulnerabilities.includes("arv")) { //Assert, require or revert violation
     ["AOR", "BOR", "BLR", "CSC", "DLR", "EHC", "FVR", "ILR", "LSC", "MOC", "MOD", "MOI", "RVS", "TOR", "UORD"].forEach(id => IDs.add(id));
   }
   if (vulnerabilities.includes("igg")) { //Insufficient gas griefing
-    ["ACM", "CSC", "ETR", "FVR", "GVR", "LSC", "MOC", "MOD", "MOI", "RVS", "TOR", "UORD"].forEach(id => IDs.add(id));
+    ["ACM", "CSC", "ETR", "FVR", "GL", "GVR", "LSC", "MOC", "MOD", "MOI", "RVS", "TOR", "UORD"].forEach(id => IDs.add(id));
   }
   if (vulnerabilities.includes("ato")) { //Authorization via transaction origin
     ["AVR", "FVR", "MOC", "MOD", "MOI", "TOR"].forEach(id => IDs.add(id));
   }
   if (vulnerabilities.includes("iou")) { //Integer over or underflow
-    ["AOR", "BOR", "ICM", "ILR", "SFR", "UORD"].forEach(id => IDs.add(id));
+    [ "AOD", "AOR", "BOR", "ICM", "ILR", "SFR", "UORD"].forEach(id => IDs.add(id));
   }
   var sortedIDs = Array.from(IDs).sort();
   sortedIDs.forEach(ID => {
