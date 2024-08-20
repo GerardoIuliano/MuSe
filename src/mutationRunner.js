@@ -30,7 +30,7 @@ const mutGen = new mutationGenerator.MutationOperators([
   "ACM", "AOD", "AOR", "AVR", "BCRD", "BLR", "BM", "BOR", "CBD", "CCD", "CSC", "DLR", "DOD",
   "ECR", "ECRVM", "ECS", "EED", "EHC", "ER", "ETR", "FFM", "FVR", "GL", "GVR", "HLR", "ICM",
   "ILR", "IRR", "LSC", "MCR", "MOC", "MOD", "MOI", "MOR", "NVI", "OLFD", "OMD", "ORFD", "PGI",
-  "PKD", "RFC", "RSD", "RSR", "RVS", "SCEC", "SFD", "SFI", "SFR", "SKD", "SKI", "SLR", "TM",
+  "PKD", "RFC", "ROS", "RSD", "RSR", "RVS", "SCEC", "SFD", "SFI", "SFR", "SKD", "SKI", "SLR", "TM",
   "TOR", "UORD", "US", "VUR", "VVR"
 ].map(operator => new mutationGenerator[`${operator}Operator`]()));
 /*
@@ -425,7 +425,7 @@ function check(args){
   console.log();
 
   if (vulnerabilities.includes("ren")) { //Reentrancy
-    ["ECR", "ETR", "FFM", "MOC", "MOD", "MOI", "RFC", "RSD", "SFI", "TOR"].forEach(id => IDs.add(id));
+    ["ECR", "ETR", "FFM", "MOC", "MOD", "MOI", "RFC", "ROS", "RSD", "SFI", "TOR"].forEach(id => IDs.add(id));
   }
   if (vulnerabilities.includes("idv")) { //Improper Data Validation
     ["AVR", "ACM", "CSC", "DLR", "ECRVM", "EHC", "ECS", "GVR", "IRR", "MOC", "MOD", "MOI", "NVI", "RVS"].forEach(id => IDs.add(id));

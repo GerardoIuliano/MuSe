@@ -55,5 +55,6 @@
     "US": true,
     "ECR": true,
     "FFM": true,
-    "RFC": true
+    "RFC": true,
+    "ROS": true
 }

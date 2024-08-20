@@ -100,6 +100,7 @@ const USOperator = require('./gg/lci/unencrypted-storage')
 const ECROperator = require('./gg/ren/external-call-replacement')
 const FFMOperator = require('./gg/ren/fallback-function-manipulation')
 const RFCOperator = require('./gg/ren/reentrant-function-call')
+const ROSOperator = require('./gg/ren/reentrancy-order-swap')
 
 function MutationOperators(operators) {
   this.operators = operators
@@ -284,4 +285,5 @@ module.exports = {
   USOperator: USOperator,
   VUROperator: VUROperator,
   VVROperator: VVROperator,
+  ROSOperator: ROSOperator
 }
