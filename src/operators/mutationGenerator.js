@@ -87,20 +87,15 @@ const SLROperator = require('./standard/string-literal-replacement')
 const TOROperator = require('./standard/transaction-origin-replacement')
 const UORDOperator = require('./standard/unary-replacement')
 
-const BMOperator = require('./gg/brg/blockhash-manipulation')
-const RSROperator = require('./gg/brg/randomness-source-replacement')
-const TMOperator = require('./gg/brg/timestamp-manipulation')
-const ECRVMOperator = require('./gg/idv/external-contract-return-value-manipulation')
-const IRROperator = require('./gg/idv/input-range-replacement')
-const NVIOperator = require('./gg/idv/null-value-insertion')
-const GLOperator = require('./gg/igg/gas-limitation')
-const AODOperator = require('./gg/iou/arithmetic-operation-duplication')
-const PGIOperator = require('./gg/lci/public-getter-insertion')
-const USOperator = require('./gg/lci/unencrypted-storage')
-const ECROperator = require('./gg/ren/external-call-replacement')
-const FFMOperator = require('./gg/ren/fallback-function-manipulation')
-const RFCOperator = require('./gg/ren/reentrant-function-call')
-const ROSOperator = require('./gg/ren/reentrancy-order-swap')
+
+
+const GBOperator = require('./gg/gas-bomb')
+const ROSOperator = require('./gg/reentrancy-order-swap')
+const CLOperator = require('./gg/calls-loop.js')
+const AVOperator = require('./gg/assert-violation.js')
+const UCOperator = require('./gg/unchecked-call.js')
+const DTUOperator = require('./gg/delegatecall-to-untrusted.js')
+const UROperator = require('./gg/unused-return.js')
 
 function MutationOperators(operators) {
   this.operators = operators
@@ -228,12 +223,10 @@ MutationOperators.prototype.disableAll = function () {
 
 module.exports = {
   ACMOperator: ACMOperator,
-  AODOperator: AODOperator,
   AOROperator: AOROperator,
   AVROperator: AVROperator,
   BCRDOperator: BCRDOperator,
   BLROperator: BLROperator,
-  BMOperator: BMOperator,
   BOROperator: BOROperator,
   CBDOperator: CBDOperator,
   CCDOperator: CCDOperator,
@@ -241,20 +234,16 @@ module.exports = {
   DLROperator: DLROperator,
   DODOperator: DODOperator,
   ECSOperator: ECSOperator,
-  ECRVMOperator: ECRVMOperator,
-  ECROperator: ECROperator,
   EEDOperator: EEDOperator,
   EHCOperator: EHCOperator,
   EROperator: EROperator,
   ETROperator: ETROperator,
-  FFMOperator: FFMOperator,
   FVROperator: FVROperator,
-  GLOperator: GLOperator,
+  GBOperator: GBOperator,
   GVROperator: GVROperator,
   HLROperator: HLROperator,
   ICMOperator: ICMOperator,
   ILROperator: ILROperator,
-  IRROperator: IRROperator,
   LSCOperator: LSCOperator,
   MCROperator: MCROperator,
   MODOperator: MODOperator,
@@ -262,15 +251,11 @@ module.exports = {
   MOCOperator: MOCOperator,
   MOROperator: MOROperator,
   MutationOperators: MutationOperators,
-  NVIOperator: NVIOperator,
   OLFDOperator: OLFDOperator,
   OMDOperator: OMDOperator,
   ORFDOperator: ORFDOperator,
-  PGIOperator: PGIOperator,
   PKDOperator: PKDOperator,
-  RFCOperator: RFCOperator,
   RSDOperator: RSDOperator,
-  RSROperator: RSROperator,
   RVSOperator: RVSOperator,
   SCECOperator: SCECOperator,
   SFDOperator: SFDOperator,
@@ -279,11 +264,14 @@ module.exports = {
   SKDOperator: SKDOperator,
   SKIOperator: SKIOperator,
   SLROperator: SLROperator,
-  TMOperator: TMOperator,
   TOROperator: TOROperator,
   UORDOperator: UORDOperator,
-  USOperator: USOperator,
   VUROperator: VUROperator,
   VVROperator: VVROperator,
-  ROSOperator: ROSOperator
+  ROSOperator: ROSOperator,
+  AVOperator: AVOperator,
+  UCOperator: UCOperator,
+  DTUOperator: DTUOperator,
+  UROperator: UROperator,
+  CLOperator: CLOperator
 }

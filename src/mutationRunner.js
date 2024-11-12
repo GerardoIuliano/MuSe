@@ -27,31 +27,12 @@ var buildDir;
 const reporter = new Reporter()
 const tceRunner = new TceRunner()
 const mutGen = new mutationGenerator.MutationOperators([
-  "ACM", "AOD", "AOR", "AVR", "BCRD", "BLR", "BM", "BOR", "CBD", "CCD", "CSC", "DLR", "DOD",
-  "ECR", "ECRVM", "ECS", "EED", "EHC", "ER", "ETR", "FFM", "FVR", "GL", "GVR", "HLR", "ICM",
-  "ILR", "IRR", "LSC", "MCR", "MOC", "MOD", "MOI", "MOR", "NVI", "OLFD", "OMD", "ORFD", "PGI",
-  "PKD", "RFC", "ROS", "RSD", "RSR", "RVS", "SCEC", "SFD", "SFI", "SFR", "SKD", "SKI", "SLR", "TM",
-  "TOR", "UORD", "US", "VUR", "VVR"
+  "ACM", "AOR", "AVR", "BCRD", "BLR", "BOR", "CBD", "CCD", "CSC",
+  "DLR", "DTU", "DOD", "ECS", "EED", "EHC", "ER", "ETR", "FVR", "GB", "GVR",
+  "HLR", "ICM", "ILR", "LSC", "MCR", "MOD", "MOI", "MOC", "MOR", "OLFD",
+  "OMD", "ORFD", "PKD", "RSD", "RVS", "SCEC", "SFD", "SFI", "SFR", "SKD",
+  "SKI", "SLR", "TOR", "UORD", "VUR", "VVR", "ROS", "CL", "AV", "UC", "UR"
 ].map(operator => new mutationGenerator[`${operator}Operator`]()));
-/*
-const mutGen = new mutationGenerator.MutationOperators([
-  "ACM", "AOD", "AOR", "AVR", "BCRD", "BLR", "BM", "BOR", "CBD", "CCD", "CSC", "DLR", "DOD",
-  "ECR", "ECRVM", "ECS", "EED", "EHC", "ER", "ETR", "FFM", "FVR", "GL", "GVR", "HLR", "ICM",
-  "ILR", "IRR", "LSC", "MCR", "MOC", "MOD", "MOI", "MOR", "NVI", "OLFD", "OMD", "ORFD", "PGI",
-  "PKD", "RFC", "RSD", "RSR", "RVS", "SCEC", "SFD", "SFI", "SFR", "SKD", "SKI", "SLR", "TM",
-  "TOR", "UORD", "US", "VUR", "VVR"
-].map(operator => new mutationGenerator[`${operator}Operator`]()));
-*/
-
-/*
-const mutGen = new mutationGenerator.MutationOperators([
-  "ACM", "AOR", "AVR", "BCRD", "BLR", "BOR", "CBD", "CCD", "CSC", "DLR",
-  "DOD", "ECS", "EED", "EHC", "ER", "ETR", "FVR", "GVR", "HLR", "ILR",
-  "ICM", "LSC", "PKD", "MCR", "MOC", "MOD", "MOI", "MOR", "OLFD", "OMD",
-  "ORFD", "RSD", "RVS", "SCEC", "SFI", "SFD", "SFR", "SKD", "SKI", "SLR",
-  "TOR", "UORD", "VUR", "VVR"
-].map(operator => new mutationGenerator[`${operator}Operator`]()));
- */
 
 /**
  * Setup operations
@@ -418,46 +399,6 @@ function testSelection(files) {
   return testsToBeRun;
 }
 
-function check(args){
-  var vulnerabilities = args.map(v => v.toLowerCase());
-  var IDs = new Set(); // IDs of the mutation operators to activate
-
-  console.log();
-
-  if (vulnerabilities.includes("ren")) { //Reentrancy
-    ["ECR", "ETR", "FFM", "MOC", "MOD", "MOI", "RFC", "ROS", "RSD", "SFI", "TOR"].forEach(id => IDs.add(id));
-  }
-  if (vulnerabilities.includes("idv")) { //Improper Data Validation
-    ["AVR", "ACM", "CSC", "DLR", "ECRVM", "EHC", "ECS", "GVR", "IRR", "MOC", "MOD", "MOI", "NVI", "RVS"].forEach(id => IDs.add(id));
-  }
-  if (vulnerabilities.includes("brg")) { //Bad random number generation
-    ["AVR", "BM", "CSC", "EHC", "GVR", "LSC", "MOC", "MOD", "MOI", "RSR", "TM", "TOR"].forEach(id => IDs.add(id));
-  }
-  if (vulnerabilities.includes("lci")) { //Leakage of confidential information
-    ["AVR", "DLR", "EED", "EHC", "FVR", "GVR", "MOC", "MOD", "MOI", "PGI", "RVS", "TOR", "US", "VVR"].forEach(id => IDs.add(id));
-  }
-  if (vulnerabilities.includes("arv")) { //Assert, require or revert violation
-    ["AOR", "BOR", "BLR", "CSC", "DLR", "EHC", "FVR", "ILR", "LSC", "MOC", "MOD", "MOI", "RVS", "TOR", "UORD"].forEach(id => IDs.add(id));
-  }
-  if (vulnerabilities.includes("igg")) { //Insufficient gas griefing
-    ["ACM", "CSC", "ETR", "FVR", "GL", "GVR", "LSC", "MOC", "MOD", "MOI", "RVS", "TOR", "UORD"].forEach(id => IDs.add(id));
-  }
-  if (vulnerabilities.includes("ato")) { //Authorization via transaction origin
-    ["AVR", "FVR", "MOC", "MOD", "MOI", "TOR"].forEach(id => IDs.add(id));
-  }
-  if (vulnerabilities.includes("iou")) { //Integer over or underflow
-    [ "AOD", "AOR", "BOR", "ICM", "ILR", "SFR", "UORD"].forEach(id => IDs.add(id));
-  }
-  var sortedIDs = Array.from(IDs).sort();
-  sortedIDs.forEach(ID => {
-      const success = mutGen.enable(ID);
-      console.log(success ? chalk.bold.yellow(ID) + " enabled." : chalk.red("Error: " + ID + " does not exist."));
-  });
-
-  console.log();
-
-}
-
 module.exports = {
   lookup: lookup,
   mutate: mutate,
@@ -466,5 +407,4 @@ module.exports = {
   list: enabledOperators,
   enable: enableOperator,
   disable: disableOperator,
-  check: check
 }

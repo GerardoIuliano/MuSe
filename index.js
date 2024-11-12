@@ -44,14 +44,5 @@ yargs
     mutationRunner.disable(argv.ID)
   })
   .command('restore', 'restore the SUT files', utils.restore)
-  .command('check [VULNERABILITY..]', 'enables mutation operators to check for vulnerabilities', (yargs) => {
-    yargs
-      .positional('VULNERABILITY', {
-        type: 'string',
-        describe: 'List of vulnerabilities to check.',
-      })
-  }, (argv) => {
-    mutationRunner.check(argv.VULNERABILITY)
-  })
   .help()
   .argv
