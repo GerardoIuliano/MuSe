@@ -1,7 +1,7 @@
 {
   "author": "Luigi Allocca",
   "name": "@ggflutter/sumo",
-  "version": "2.5.75003793",
+  "version": "2.5.75003829",
   "description": "A mutation testing tool for Ethereum smart contracts",
   "repository": {
     "type": "git",

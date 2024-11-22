@@ -20,11 +20,9 @@ UCOperator.prototype.getMutations = function(file, source, visit) {
             if (!expr) return false;
     
             if (expr.type === 'MemberAccess' && 
-                ['send', 'call'].includes(expr.memberName)) {
+                ['send', 'call','transfer','transferFrom'].includes(expr.memberName)) {
                 const start = node.range[0];
                 const end = node.range[1];
-                const original = source.slice(start, end);
-                console.log(original);
                 return true;
             }
 
@@ -62,7 +60,6 @@ UCOperator.prototype.getMutations = function(file, source, visit) {
 
     visit({
         ExpressionStatement: (node) => {
-
             if (requireContainsSendOrCall(node)) {
                 const start = node.range[0];
                 const end = node.range[1];
@@ -74,6 +71,13 @@ UCOperator.prototype.getMutations = function(file, source, visit) {
                     .replace(/^require\s*\(\s*!?\s*/, '')
                     .replace(/^assert\s*\(\s*!?\s*/, '')
                     .replace(/\s*\)\s*;?$/, '');
+                
+                // Rimuove tutto dalla virgola successiva all'ultimo ")" fino a ";" finale
+                const lastClosingParenIndex = mutatedString.lastIndexOf(')');
+                const commaIndex = mutatedString.indexOf(',', lastClosingParenIndex);
+                if (commaIndex !== -1) {
+                    mutatedString = mutatedString.slice(0, commaIndex).trim();
+                }
 
                 mutations.push(new Mutation(file, start, end, startLine, endLine, original, mutatedString, this.ID));
             }
@@ -95,14 +99,19 @@ UCOperator.prototype.getMutations = function(file, source, visit) {
 
                 let mutatedString;
 
+                const cleanedOriginal = original
+                    .replace(/\bthrow\s*;\s*/g, '') // Rimuove `throw;` anche con spazi extra o invisibili
+                    .replace(/\brevert\s*;\s*/g, '') // Rimuove `revert;` con eventuali spazi extra
+                    .trim(); // Rimuove gli spazi bianchi prima e dopo
+
                 if (hasBraces) {
                     // Se ci sono le parentesi graffe, modifica normalmente
-                    mutatedString = `if (true) { ${callExpression}; ${original.slice(original.indexOf("{") + 1, original.lastIndexOf("}") + 1).trim()}`;
+                    mutatedString = `if (true) { ${callExpression}; ${cleanedOriginal.slice(cleanedOriginal.indexOf("{") + 1, cleanedOriginal.lastIndexOf("}") + 1).trim()}`;
                     if (hasElse) {
                         mutatedString += "}";  // Aggiungi la graffa solo se non c'è un `else`
                     }
                 } else {
-                    const expressionAfterIf = original.slice(original.indexOf(")") + 2).trim();
+                    const expressionAfterIf = cleanedOriginal.slice(cleanedOriginal.indexOf(")") + 2).trim();
                     mutatedString = `if (true) { ${callExpression}; ${expressionAfterIf} }`;
                 }
 

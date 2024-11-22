@@ -159,6 +159,9 @@ ROSOperator.prototype.getMutations = function(file, source, visit) {
                 const left = node.condition.left;
                 const right = node.condition.right;
                 return isNonStateChange(left) || isNonStateChange(right)
+            } else if (node.condition.type === 'UnaryOperation') {
+                const sub = node.condition.subExpression;
+                return isNonStateChange(sub);
             }
             
         }

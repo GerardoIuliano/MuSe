@@ -23,8 +23,11 @@ UROperator.prototype.getMutations = function(file, source, visit) {
                 BinaryOperation: (node) => {
                     const start = node.range[0];
                     const end = node.range[1] + 1;
-
-                    if (start >= functionStart && end <= functionEnd && node.operator === '=' && (node.right.type === 'FunctionCall' || node.right.type === 'MemberAccess')) {
+                    
+                    if (start >= functionStart && end <= functionEnd && node.operator === '=' &&
+                        (node.right.type === 'FunctionCall' || node.right.type === 'MemberAccess') &&
+                        node.right.memberName !== 'sender'
+                    ) {
                         // Rimuovi l'assegnazione dall'originale
                         const original = source.slice(start, end);
                         const mutatedString = original.replace(/^[^=]+=\s*/, "");
@@ -39,7 +42,7 @@ UROperator.prototype.getMutations = function(file, source, visit) {
                     const start = node.range[0];
                     const end = node.range[1] + 1;
 
-                    if (start >= functionStart && end <= functionEnd && node.variables[0] && 
+                    if (start >= functionStart && end <= functionEnd && node.variables[0] && node.variables[0].typeName && node.variables[0].typeName.name &&
                         (node.variables[0].typeName.name === 'uint256' || node.variables[0].typeName.name === 'uint')) {
                         const original = source.slice(start, end);
 

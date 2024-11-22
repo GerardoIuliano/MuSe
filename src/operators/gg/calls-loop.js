@@ -48,6 +48,15 @@ CLOperator.prototype.getMutations = function(file, source, visit) {
             if (expressionContainsSendCallTransfer(node.expression)) {
                 handleMutation(node.expression);
             }
+        },
+
+        IfStatement: (node) => {
+            if (expressionContainsSendCallTransfer(node.condition)) {
+                handleMutation(node);
+            }
+            if (expressionContainsSendCallTransfer(node.condition.subExpression)) {
+                handleMutation(node);
+            }
         }
     });
 
