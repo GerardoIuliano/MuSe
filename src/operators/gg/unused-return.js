@@ -52,12 +52,16 @@ UROperator.prototype.getMutations = function(file, source, visit) {
                             const variableDeclaration = declarationMatch[1]; // Parte iniziale fino al "="
                             const functionCall = declarationMatch[2];       // Parte dopo il "=" fino al ";"
 
-                            // Mutazione: assegna 0 alla variabile e lascia la chiamata a parte
-                            const mutatedString = `${variableDeclaration}0; ${functionCall};`;
+                            const isAlreadyInteger = /^\d+$/.test(functionCall.trim());
 
-                            // Aggiorna il codice della funzione con la modifica
-                            modifiedFunctionCode = modifiedFunctionCode.replace(original, mutatedString);
-                            hasMutations = true;
+                            if (!isAlreadyInteger) {
+                                // Mutazione: assegna 0 alla variabile e lascia la chiamata a parte
+                                const mutatedString = `${variableDeclaration}0; ${functionCall};`;
+
+                                // Aggiorna il codice della funzione con la modifica
+                                modifiedFunctionCode = modifiedFunctionCode.replace(original, mutatedString);
+                                hasMutations = true;
+                            }
                         }
                     }
                 }
