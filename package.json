@@ -1,11 +1,11 @@
 {
-  "author": "Luigi Allocca",
-  "name": "@ggflutter/sumo",
+  "author": "Gerardo Iuliano",
+  "name": "@geri/sumo",
   "version": "2.5.75003830",
   "description": "A mutation testing tool for Ethereum smart contracts",
   "repository": {
     "type": "git",
-    "url": "https://github.com/GGFlutterdev/SuMo-SOlidity-MUtator"
+    "url": "https://github.com/GerardoIuliano/SuMo-SOlidity-MUtator"
   },
   "main": "index.js",
   "bin": {
