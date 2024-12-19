@@ -1,7 +1,7 @@
 {
   "author": "Gerardo Iuliano",
   "name": "@geriul/sumo",
-  "version": "2.5.75003830",
+  "version": "3.0.1",
   "description": "A mutation testing tool for Ethereum smart contracts",
   "repository": {
     "type": "git",
@@ -23,12 +23,13 @@
     "postinstall": "node ./scripts/init.js"
   },
   "dependencies": {
-    "@geriul/sumo": "^2.5.75003830",
+    "@geriul/sumo": "^3.0.1",
     "@solidity-parser/parser": "^0.15.0",
     "app-root-path": "3.1.0",
     "chalk": "^4.1.2",
     "diff": "^5.0.0",
     "excel4node": "^1.7.2",
+    "express": "^4.21.2",
     "fast-csv": "4.3.6",
     "fs-extra": "^10.1.0",
     "glob": "8.1.0",

@@ -65,16 +65,19 @@ ROSOperator.prototype.getMutations = function(file, source, visit) {
             const rightExpression = expression.right.expression;
             // Caso per le funzioni che usano MemberAccess (ad esempio, `address.transfer`, `token.balanceOf`)
             if (rightExpression.type === 'MemberAccess' &&
-                (rightExpression.memberName === 'transfer' ||
-                rightExpression.memberName === 'address' ||
-                rightExpression.memberName === 'send' ||
-                rightExpression.memberName === 'push' ||
-                rightExpression.memberName === 'add' ||
-                rightExpression.memberName === 'mul' ||
-                rightExpression.memberName === 'div' ||
-                rightExpression.memberName === 'sub' ||
-                rightExpression.memberName === 'balanceOf' ||
-                rightExpression.memberName === 'keccak256')
+                (
+                //rightExpression.memberName === 'transfer' ||
+                // rightExpression.memberName === 'address' ||
+                // rightExpression.memberName === 'send' ||
+                // rightExpression.memberName === 'push' ||
+                // rightExpression.memberName === 'add' ||
+                // rightExpression.memberName === 'mul' ||
+                // rightExpression.memberName === 'div' ||
+                // rightExpression.memberName === 'sub' ||
+                // rightExpression.memberName === 'balanceOf' ||
+                // rightExpression.memberName === 'keccak256'
+                rightExpression.memberName !== 'call'
+            )
             ) {
                 return true;
             }
@@ -85,17 +88,20 @@ ROSOperator.prototype.getMutations = function(file, source, visit) {
             }
 
             if (rightExpression.type === 'Identifier' &&
-                (rightExpression.name === 'transfer' ||
-                rightExpression.name === 'address' ||
-                rightExpression.name === 'send' ||
-                rightExpression.name === 'push' ||
-                rightExpression.name === 'add' ||
-                rightExpression.name === 'mul' ||
-                rightExpression.name === 'div' ||
-                rightExpression.name === 'sub' ||
-                rightExpression.name === 'balanceOf' ||
-                rightExpression.name === 'keccak256' ||
-                rightExpression.name === 'msg')
+                (
+                //rightExpression.name === 'transfer' ||
+                // rightExpression.name === 'address' ||
+                // rightExpression.name === 'send' ||
+                // rightExpression.name === 'push' ||
+                // rightExpression.name === 'add' ||
+                // rightExpression.name === 'mul' ||
+                // rightExpression.name === 'div' ||
+                // rightExpression.name === 'sub' ||
+                // rightExpression.name === 'balanceOf' ||
+                // rightExpression.name === 'keccak256' ||
+                // rightExpression.name === 'msg'
+                rightExpression.name !== 'call'
+            )
             ) {
                 
                 return true;
@@ -121,32 +127,37 @@ ROSOperator.prototype.getMutations = function(file, source, visit) {
             const expression = node.expression;
             // Caso per le funzioni che usano MemberAccess (ad esempio, `address.transfer`, `token.balanceOf`)
             if (expression.type === 'MemberAccess' &&
-                (expression.memberName === 'transfer' ||
-                expression.memberName === 'send' ||
-                expression.memberName === 'address' ||
-                expression.memberName === 'push' ||
-                expression.memberName === 'add' ||
-                expression.memberName === 'mul' ||
-                expression.memberName === 'div' ||
-                expression.memberName === 'sub' ||
-                expression.memberName === 'balanceOf' ||
-                expression.memberName === 'keccak256' ||
-                expression.memberName === 'msg')
+                (
+                //expression.memberName === 'transfer' ||
+                // expression.memberName === 'send' ||
+                // expression.memberName === 'address' ||
+                // expression.memberName === 'push' ||
+                // expression.memberName === 'add' ||
+                // expression.memberName === 'mul' ||
+                // expression.memberName === 'div' ||
+                // expression.memberName === 'sub' ||
+                // expression.memberName === 'balanceOf' ||
+                // expression.memberName === 'keccak256' ||
+                // expression.memberName === 'msg'
+                expression.memberName !== 'call'
+            )
             ) {
                 return false;
             }
 
             if (expression.type === 'Identifier' &&
-                (expression.name === 'transfer' ||
-                expression.name === 'send' ||
-                expression.name === 'address' ||
-                expression.name === 'push' ||
-                expression.name === 'add' ||
-                expression.name === 'mul' ||
-                expression.name === 'div' ||
-                expression.name === 'sub' ||
-                expression.name === 'balanceOf' ||
-                expression.name === 'keccak256')
+                (
+                //expression.name === 'transfer' ||
+                // expression.name === 'send' ||
+                // expression.name === 'address' ||
+                // expression.name === 'push' ||
+                // expression.name === 'add' ||
+                // expression.name === 'mul' ||
+                // expression.name === 'div' ||
+                // expression.name === 'sub' ||
+                // expression.name === 'balanceOf' ||
+                // expression.name === 'keccak256'
+                expression.name !== 'call')
             ) {
                 return false;
             }
@@ -297,7 +308,7 @@ ROSOperator.prototype.getMutations = function(file, source, visit) {
                 ...declarations,
                 ...assertRequireStatements,
                 ...nonStateChanges,
-                "if( ! (msg.sender.call() ) ){throw;}",
+                //"if( ! (msg.sender.call() ) ){throw;}",
                 ...stateChanges,
                 ...emitsAndReturns
             ];

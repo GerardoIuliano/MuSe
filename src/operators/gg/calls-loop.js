@@ -11,12 +11,12 @@ CLOperator.prototype.getMutations = function(file, source, visit) {
     // Funzione per controllare se un nodo contiene chiamate a `send`, `call` o `transfer`
     function expressionContainsSendCallTransfer(node) {
         if (!node) return false;
-
+        
         // Controlla se il nodo è una chiamata a `call`
         if (node.memberName === 'call' || node.memberName === 'transfer' || node.memberName === 'send') {
             return true;
         }
-
+        
         // Controlla se uno degli argomenti contiene una chiamata a `call`
         const hasSendCallTransferInArgs = Array.isArray(node.arguments) && node.arguments.some(arg => expressionContainsSendCallTransfer(arg));
         
@@ -34,7 +34,7 @@ CLOperator.prototype.getMutations = function(file, source, visit) {
         const endLine = node.loc.end.line;
         const original = source.slice(start, end);
 
-        console.log(JSON.stringify(node));
+        //console.log(JSON.stringify(node));
 
         const mutationCode = `for (uint i = 0; i < 1000; i++) { ${original} }`;
         

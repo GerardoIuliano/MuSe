@@ -23,7 +23,7 @@ UROperator.prototype.getMutations = function(file, source, visit) {
                 BinaryOperation: (node) => {
                     const start = node.range[0];
                     const end = node.range[1] + 1;
-                    
+
                     if (start >= functionStart && end <= functionEnd && node.operator === '=' &&
                         (node.right.type === 'FunctionCall' || node.right.type === 'MemberAccess') &&
                         node.right.memberName !== 'sender'
@@ -45,23 +45,19 @@ UROperator.prototype.getMutations = function(file, source, visit) {
                     if (start >= functionStart && end <= functionEnd && node.variables[0] && node.variables[0].typeName && node.variables[0].typeName.name &&
                         (node.variables[0].typeName.name === 'uint256' || node.variables[0].typeName.name === 'uint')) {
                         const original = source.slice(start, end);
-
+                        //console.log(JSON.stringify(node));
                         // Identifica il contenuto della funzione chiamata (senza ridefinire la variabile)
                         const declarationMatch = original.match(/(uint(?:256)?\s+\w+\s*=\s*)([^;]+);/);
                         if (declarationMatch) {
                             const variableDeclaration = declarationMatch[1]; // Parte iniziale fino al "="
                             const functionCall = declarationMatch[2];       // Parte dopo il "=" fino al ";"
 
-                            const isAlreadyInteger = /^\d+$/.test(functionCall.trim());
+                            // Mutazione: assegna 0 alla variabile e lascia la chiamata a parte
+                            const mutatedString = `${variableDeclaration}0; ${functionCall};`;
 
-                            if (!isAlreadyInteger) {
-                                // Mutazione: assegna 0 alla variabile e lascia la chiamata a parte
-                                const mutatedString = `${variableDeclaration}0; ${functionCall};`;
-
-                                // Aggiorna il codice della funzione con la modifica
-                                modifiedFunctionCode = modifiedFunctionCode.replace(original, mutatedString);
-                                hasMutations = true;
-                            }
+                            // Aggiorna il codice della funzione con la modifica
+                            modifiedFunctionCode = modifiedFunctionCode.replace(original, mutatedString);
+                            hasMutations = true;
                         }
                     }
                 }

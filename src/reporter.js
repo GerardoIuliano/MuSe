@@ -122,7 +122,7 @@ Reporter.prototype.logStartMutationTesting = function () {
 
 Reporter.prototype.logLookup = function (mutations, genTime, operators) {
 
-  console.log(chalk.yellow.bold("Lookup") + " 🧬");
+  //console.log(chalk.yellow.bold("Lookup") + " 🧬");
 
   const lookup = mutations.length + " mutation(s) found in " + genTime + " seconds \n" +
     "Generated mutations saved to sumo/results/results.csv and sumo/results/mutations.json \n"
@@ -131,7 +131,7 @@ Reporter.prototype.logLookup = function (mutations, genTime, operators) {
     if (err) return console.log(err);
   });
 
-  console.log(operators + "\n\n" + lookup);
+  //console.log(operators + "\n\n" + lookup);
 };
 
 /**

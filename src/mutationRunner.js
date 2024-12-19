@@ -31,7 +31,7 @@ const mutGen = new mutationGenerator.MutationOperators([
   "DLR", "DTU", "DOD", "ECS", "EED", "EHC", "ER", "ETR", "FVR", "GB", "GVR",
   "HLR", "ICM", "ILR", "LSC", "MCR", "MOD", "MOI", "MOC", "MOR", "OLFD",
   "OMD", "ORFD", "PKD", "RSD", "RVS", "SCEC", "SFD", "SFI", "SFR", "SKD",
-  "SKI", "SLR", "TOR", "UORD", "VUR", "VVR", "ROS", "CL", "AV", "UC", "UR"
+  "SKI", "SLR", "TOR", "UORD", "VUR", "VVR", "ROS", "CL", "AV", "UC", "US", "UR"
 ].map(operator => new mutationGenerator[`${operator}Operator`]()));
 
 /**
@@ -102,10 +102,11 @@ function mutate() {
         let contractsUnderMutation = contractSelection(contracts);
         let testsToBeRun = testSelection(tests);
         reporter.logSelectedFiles(contractsUnderMutation, testsToBeRun);
-        const mutations = generateMutations(contractsUnderMutation, true);
-        for (const mutation of mutations) {
-          mutation.save();
-        }
+        generateMutations(contractsUnderMutation, true);
+        // const mutations = generateMutations(contractsUnderMutation, true);
+        // for (const mutation of mutations) {
+        //   mutation.save();
+        // }
         console.log("Mutants saved to " + mutantsDir);
       })
     })
@@ -123,18 +124,26 @@ function generateMutations(files, overwrite) {
   const enabledOperators = mutGen.getEnabledOperators();
 
   for (const file of files) {
-    const source = fs.readFileSync(file, 'utf8');
-    const ast = parser.parse(source, { range: true, loc: true });
-    const visit = parser.visit.bind(parser, ast);
-    mutations.push(...mutGen.getMutations(file, source, visit, overwrite));
+    try {
+      const source = fs.readFileSync(file, 'utf8');
+      const ast = parser.parse(source, { range: true, loc: true });
+      const visit = parser.visit.bind(parser, ast);
+      const mutants = mutGen.getMutations(file, source, visit, overwrite);
+      for (const mutant of mutants){
+        mutant.save();
+      }
+      mutations.push(...mutants);
+      //mutations.push(...mutGen.getMutations(file, source, visit, overwrite));
+      if (overwrite) {
+        const generationTime = (Date.now() - startTime) / 1000;
+        reporter.saveGeneratedMutantsCsv(mutations);
+        reporter.saveGeneratedMutationsJson(mutations);
+        reporter.logLookup(mutations, generationTime, enabledOperators);
+      }
+    } catch (error){
+      console.log(`Errore nel file ${file}:`, error.message);
+    }
   }
-  if (overwrite) {
-    const generationTime = (Date.now() - startTime) / 1000;
-    reporter.saveGeneratedMutantsCsv(mutations);
-    reporter.saveGeneratedMutationsJson(mutations);
-    reporter.logLookup(mutations, generationTime, enabledOperators);
-  }
-
   return mutations;
 }
 
