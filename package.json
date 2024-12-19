@@ -1,11 +1,14 @@
 {
   "author": "Gerardo Iuliano",
-  "name": "@geri/sumo",
+  "name": "@geriul/sumo",
   "version": "2.5.75003830",
   "description": "A mutation testing tool for Ethereum smart contracts",
   "repository": {
     "type": "git",
     "url": "https://github.com/GerardoIuliano/SuMo-SOlidity-MUtator"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "main": "index.js",
   "bin": {
@@ -20,14 +23,15 @@
     "postinstall": "node ./scripts/init.js"
   },
   "dependencies": {
+    "@geriul/sumo": "^2.5.75003830",
     "@solidity-parser/parser": "^0.15.0",
     "app-root-path": "3.1.0",
     "chalk": "^4.1.2",
     "diff": "^5.0.0",
     "excel4node": "^1.7.2",
-    "glob": "8.1.0",
     "fast-csv": "4.3.6",
     "fs-extra": "^10.1.0",
+    "glob": "8.1.0",
     "papaparse": "5.4.1",
     "postinstall": "^0.8.0",
     "recursive-copy": "^2.0.14",
