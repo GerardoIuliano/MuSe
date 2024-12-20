@@ -91,11 +91,13 @@ const UORDOperator = require('./standard/unary-replacement')
 
 const GBOperator = require('./gg/gas-bomb')
 const ROSOperator = require('./gg/reentrancy-order-swap')
-const CLOperator = require('./gg/calls-loop.js')
-const AVOperator = require('./gg/assert-violation.js')
-const UCOperator = require('./gg/unchecked-call.js')
-const DTUOperator = require('./gg/delegatecall-to-untrusted.js')
-const UROperator = require('./gg/unused-return.js')
+const CLOperator = require('./gg/calls-loop')
+const AVOperator = require('./gg/assert-violation')
+const UCOperator = require('./gg/unchecked-call')
+const USOperator = require('./gg/unchecked-send')
+const DTUOperator = require('./gg/delegatecall-to-untrusted')
+const UROperator = require('./gg/unused-return')
+const TXOperator = require('./gg/tx-origin')
 
 function MutationOperators(operators) {
   this.operators = operators
@@ -265,12 +267,14 @@ module.exports = {
   SKIOperator: SKIOperator,
   SLROperator: SLROperator,
   TOROperator: TOROperator,
+  TXOperator: TXOperator,
   UORDOperator: UORDOperator,
   VUROperator: VUROperator,
   VVROperator: VVROperator,
   ROSOperator: ROSOperator,
   AVOperator: AVOperator,
   UCOperator: UCOperator,
+  USOperator: USOperator,
   DTUOperator: DTUOperator,
   UROperator: UROperator,
   CLOperator: CLOperator

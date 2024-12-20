@@ -1,0 +1,30 @@
+{
+	"0x0a0a7c26e72a9fdad30beeedf28ef8a3f5139ed9.sol": [
+		{
+			"file": "/Users/gerardo/development/SuMo-SOlidity-MUtator/contracts/0x0a0a7c26e72a9fdad30beeedf28ef8a3f5139ed9.sol",
+			"start": 20247,
+			"end": 20257,
+			"startLine": 709,
+			"endLine": 709,
+			"original": "msg.sender",
+			"replace": "tx.origin",
+			"operator": "TX",
+			"status": null,
+			"testingTime": null,
+			"id": "m507587ad"
+		},
+		{
+			"file": "/Users/gerardo/development/SuMo-SOlidity-MUtator/contracts/0x0a0a7c26e72a9fdad30beeedf28ef8a3f5139ed9.sol",
+			"start": 37726,
+			"end": 37736,
+			"startLine": 1236,
+			"endLine": 1236,
+			"original": "msg.sender",
+			"replace": "tx.origin",
+			"operator": "TX",
+			"status": null,
+			"testingTime": null,
+			"id": "m9b790427"
+		}
+	]
+}

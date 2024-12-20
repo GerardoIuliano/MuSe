@@ -1,0 +1,3 @@
+Hash,File,Operator,Start,End,StartLine,EndLine,Original,Replacement,Status,Time(ms)
+m507587ad,/Users/gerardo/development/SuMo-SOlidity-MUtator/contracts/0x0a0a7c26e72a9fdad30beeedf28ef8a3f5139ed9.sol,TX,20247,20257,709,709,msg.sender,tx.origin,untested,0
+m9b790427,/Users/gerardo/development/SuMo-SOlidity-MUtator/contracts/0x0a0a7c26e72a9fdad30beeedf28ef8a3f5139ed9.sol,TX,37726,37736,1236,1236,msg.sender,tx.origin,untested,0

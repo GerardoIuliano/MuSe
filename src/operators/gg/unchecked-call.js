@@ -10,7 +10,7 @@ UCOperator.prototype.getMutations = function(file, source, visit) {
 
     const isSendOrCall = (node) => {
         if (!node) return false;
-        return node.type === 'MemberAccess' &&  (node.memberName === 'send' || node.memberName === 'call');
+        return node.type === 'MemberAccess' &&  (node.memberName === 'call');
     }
 
     // Funzione per controllare se un nodo contiene chiamate a `send`, `call` o `transfer`
@@ -20,7 +20,7 @@ UCOperator.prototype.getMutations = function(file, source, visit) {
             if (!expr) return false;
     
             if (expr.type === 'MemberAccess' && 
-                ['send', 'call','transfer','transferFrom'].includes(expr.memberName)) {
+                ['call'].includes(expr.memberName)) {
                 const start = node.range[0];
                 const end = node.range[1];
                 return true;
