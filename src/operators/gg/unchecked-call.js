@@ -10,17 +10,18 @@ UCOperator.prototype.getMutations = function(file, source, visit) {
 
     const isSendOrCall = (node) => {
         if (!node) return false;
-        return node.type === 'MemberAccess' &&  (node.memberName === 'call');
+        return node.type === 'MemberAccess' &&  (node.memberName === 'call' || 
+            node.memberName === 'delegatecall' || node.memberName === 'staticcall' || node.memberName === 'callcode');
     }
 
-    // Funzione per controllare se un nodo contiene chiamate a `send`, `call` o `transfer`
-    const requireContainsSendOrCall = (node) => {
+    // Funzione per controllare se un nodo contiene chiamate a `call`
+    const requireContainsCall = (node) => {
         // Funzione ricorsiva per controllare le espressioni
         const checkExpression = (expr) => {
             if (!expr) return false;
     
             if (expr.type === 'MemberAccess' && 
-                ['call'].includes(expr.memberName)) {
+                ['call', 'delegatecall', 'staticcall', 'callcode'].includes(expr.memberName)) {
                 const start = node.range[0];
                 const end = node.range[1];
                 return true;
@@ -60,7 +61,7 @@ UCOperator.prototype.getMutations = function(file, source, visit) {
 
     visit({
         ExpressionStatement: (node) => {
-            if (requireContainsSendOrCall(node)) {
+            if (requireContainsCall(node)) {
                 const start = node.range[0];
                 const end = node.range[1];
                 const startLine = node.loc.start.line;

@@ -13,8 +13,8 @@ USOperator.prototype.getMutations = function(file, source, visit) {
         return node.type === 'MemberAccess' &&  (node.memberName === 'send');
     }
 
-    // Funzione per controllare se un nodo contiene chiamate a `send`, `call` o `transfer`
-    const requireContainsSendOrCall = (node) => {
+    // Funzione per controllare se un nodo contiene chiamate a `send`
+    const requireContainsSend = (node) => {
         // Funzione ricorsiva per controllare le espressioni
         const checkExpression = (expr) => {
             if (!expr) return false;
@@ -60,7 +60,7 @@ USOperator.prototype.getMutations = function(file, source, visit) {
 
     visit({
         ExpressionStatement: (node) => {
-            if (requireContainsSendOrCall(node)) {
+            if (requireContainsSend(node)) {
                 const start = node.range[0];
                 const end = node.range[1];
                 const startLine = node.loc.start.line;
