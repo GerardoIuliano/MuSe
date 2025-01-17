@@ -1,5 +1,5 @@
 # SuMo
-SuMo is a mutation testing tool for Solidity Smart Contracts. It features 25 Solidity-specific mutation operators, as well as 19 traditional operators.
+SuMo is a mutation testing tool for Solidity Smart Contracts. It features 25 Solidity-specific mutation operators, 19 traditional operators, and 6 operators to inject vulnerabilities.
 
 SuMo was designed to run mutation testing on Solidity projects in a NodeJS environment. It can run test using [Truffle](https://github.com/trufflesuite/truffle), [Hardhat](https://hardhat.org/), [Brownie](https://github.com/eth-brownie/brownie)  and [Forge](https://github.com/foundry-rs/foundry). If needed, SuMo can also automatically spawn [Ganache](https://github.com/trufflesuite/ganache) instances to guarantee a clean-room testing environment between mutants.
 
@@ -110,6 +110,18 @@ Before starting the mutation process you can choose which mutation operators to 
 |---------------|------------------------------------|--------------------------|-------------------------------------|
 | `lookup`    | Generates the mutations and saves them to ./sumo/generated.csv without starting mutation testing. | `npx/yarn sumo lookup` | `$ npx sumo lookup` |
 | `mutate`    | Generates the mutations and saves a copy of each `.sol` mutant to  to ./sumo/mutants. | `npx/yarn sumo mutate` | `$ npx sumo mutate` |
+
+## Mutation operators to inject vulnerabilities
+
+| Operator            | Vulnerability                         |                 Description                    |
+|-------------------- |---------------------------------------|------------------------------------------------|
+| `UC`                | Unchecked low-level call return value | Low-level calls do not throw an exception on failure but return false. Failing to check the return status may lead to critical vulnerabilities. |
+| `US`                | Unchecked send                        | The send function does not throw an exception on failure but returns false. Failing to check the return status may lead to critical vulnerabilities. |
+| `TX`                | Authentication through tx.origin      | Using tx.origin variable for authorization could make a contract vulnerable if an authorized account calls into a malicious contract. |
+| `DTU`               | Delegatecall to untrusted callee      | Delegatecall executes the code at the target address in the context of the calling contract. This allows a SC to load code from a different address at runtime. |
+| `UR`                | Unused return                         | The return value of an external call is not stored in a local or state variable. |
+| `CL`                | Multiple calls in a loop              | Calls inside a loop might lead to a denial-of-service attack. |
+
 
 ## Running Mutation Testing
 
