@@ -109,3 +109,9 @@ dist
 # Versioning
 package-lock.json
 package.json
+
+#results
+sumo/*
+
+#contracts
+contracts/*

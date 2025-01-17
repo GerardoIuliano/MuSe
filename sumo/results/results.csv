@@ -1,6 +1,0 @@
-Hash,File,Operator,Start,End,StartLine,EndLine,Original,Replacement,Status,Time(ms)
-m4cf4a3f9,/Users/gerardo/development/SuMo-SOlidity-MUtator/contracts/0x00a0cbe98e4d110b0fa82646152d77babf2951d0.sol,UC,6602,6742,142,142,"if(!_spender.call(bytes4(bytes32(sha3(""receiveApproval(address,uint256,address,bytes)""))), msg.sender, _value, this, _extraData)) { throw; }","if (true) { _spender.call(bytes4(bytes32(sha3(""receiveApproval(address,uint256,address,bytes)""))), msg.sender, _value, this, _extraData); }",untested,0
-m507587ad,/Users/gerardo/development/SuMo-SOlidity-MUtator/contracts/0x0a0a7c26e72a9fdad30beeedf28ef8a3f5139ed9.sol,TX,20247,20257,709,709,msg.sender,tx.origin,untested,0
-m9b790427,/Users/gerardo/development/SuMo-SOlidity-MUtator/contracts/0x0a0a7c26e72a9fdad30beeedf28ef8a3f5139ed9.sol,TX,37726,37736,1236,1236,msg.sender,tx.origin,untested,0
-m5883e14e,/Users/gerardo/development/SuMo-SOlidity-MUtator/contracts/0x0a0a7c26e72a9fdad30beeedf28ef8a3f5139ed9.sol,US,11101,11136,396,396,if (!wallet.send(msg.value)) throw;,if (true) { wallet.send(msg.value);  },untested,0
-m848c2b6f,/Users/gerardo/development/SuMo-SOlidity-MUtator/contracts/0x0a0a7c26e72a9fdad30beeedf28ef8a3f5139ed9.sol,US,17589,17627,626,626,if (!msg.sender.send(retEther)) throw;,if (true) { msg.sender.send(retEther);  },untested,0

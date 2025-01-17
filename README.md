@@ -5,21 +5,21 @@ SuMo was designed to run mutation testing on Solidity projects in a NodeJS envir
 
 
 # Table of Contents
-* [Installation](https://github.com/MorenaBarboni/SuMo-SOlidity-MUtator#installation)
-* [Configuration](https://github.com/MorenaBarboni/SuMo-SOlidity-MUtator#configuration-)
-* [CLI Usage](https://github.com/MorenaBarboni/SuMo-SOlidity-MUtator#cli-usage)
-* [Trivial Compiler Equivalence](https://github.com/MorenaBarboni/SuMo-SOlidity-MUtator#trivial-compiler-equivalence)
-* [Mutation Operators](https://github.com/MorenaBarboni/SuMo-SOlidity-MUtator#mutation-operators-)
-* [Publications](https://github.com/MorenaBarboni/SuMo-SOlidity-MUtator#publications)
+* [Installation](https://github.com/GerardoIuliano/SuMo-SOlidity-MUtator#installation)
+* [Configuration](https://github.com/GerardoIuliano/SuMo-SOlidity-MUtator#configuration-)
+* [CLI Usage](https://github.com/GerardoIuliano/SuMo-SOlidity-MUtator#cli-usage)
+* [Trivial Compiler Equivalence](https://github.com/GerardoIuliano/SuMo-SOlidity-MUtator#trivial-compiler-equivalence)
+* [Mutation Operators](https://github.com/GerardoIuliano/SuMo-SOlidity-MUtator#mutation-operators-)
+* [Publications](https://github.com/GerardoIuliano/SuMo-SOlidity-MUtator#publications)
 
 
 
 # Installation
 
-To install sumo run ```npm install @morenabarboni/sumo```
+To install sumo run ```npm install @geriul/sumo```
 
 # Configuration ⚙️
-Before using SuMo you must specify your desired configuration in a [sumo-config.js](https://github.com/MorenaBarboni/SuMo-SOlidity-MUtator/blob/master/src/sumo-config.js) in the root directory of your project. The ```sumo-config.js``` is automatically generated upon installation.
+Before using SuMo you must specify your desired configuration in a [sumo-config.js](https://github.com/GerardoIuliano/SuMo-SOlidity-MUtator/blob/master/src/sumo-config.js) in the root directory of your project. The ```sumo-config.js``` is automatically generated upon installation.
 
 Here's a simple example of ```sumo-config.js```:
 
