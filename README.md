@@ -1,4 +1,4 @@
-# MuSe
+# MuSe - MUtation SEeding tool
 A mutation-based tool for generating benchmarks by injecting vulnerabilities into smart contracts. It features 6 mutation operators to inject vulnerabilities.
 MuSe is based on a mutation testing tool called [SuMo](https://github.com/MorenaBarboni/SuMo-SOlidity-MUtator). SuMo was designed to run mutation testing on Solidity projects in a NodeJS environment. It can run test using [Truffle](https://github.com/trufflesuite/truffle), [Hardhat](https://hardhat.org/), [Brownie](https://github.com/eth-brownie/brownie)  and [Forge](https://github.com/foundry-rs/foundry). If needed, SuMo can also automatically spawn [Ganache](https://github.com/trufflesuite/ganache) instances to guarantee a clean-room testing environment between mutants.
 
@@ -215,7 +215,7 @@ By default, SuMo employs the **extended** operators. However, you can enable the
 | US  | Unchecked send                        | ```require(address.send())``` &rarr; ```address.send()```     |  N |
 | TX  | Authentication through tx.origin      | ```owner == msg.sender```     &rarr; ```owner == tx.origin``` |  N |
 | DTU | Delegatecall to untrusted callee      | ```address.delegatecall()``` &rarr; ```function setDelegate(address _addr){addr = _addr} addr.delegatecall()``` |  N |
-| UR  | Unused return                         | ```c = SafeMath.add(a, b)``` &rarr; ```SafeMath.add(a, b)``` <br /> ```<``` &rarr; ```>=``` |  N |
+| UR  | Unused return                         | ```c = SafeMath.add(a, b)``` &rarr; ```SafeMath.add(a, b)``    |  N |
 | CL  | Multiple calls in a loop              | ```address.call()``` &rarr; ```for(uint i=0; i<1000; i++){address.call()}``` |  N |
 
 ## Traditional Mutation Operators
