@@ -1,7 +1,6 @@
-# SuMo
-SuMo is a mutation testing tool for Solidity Smart Contracts. It features 25 Solidity-specific mutation operators, 19 traditional operators, and 6 operators to inject vulnerabilities.
-
-SuMo was designed to run mutation testing on Solidity projects in a NodeJS environment. It can run test using [Truffle](https://github.com/trufflesuite/truffle), [Hardhat](https://hardhat.org/), [Brownie](https://github.com/eth-brownie/brownie)  and [Forge](https://github.com/foundry-rs/foundry). If needed, SuMo can also automatically spawn [Ganache](https://github.com/trufflesuite/ganache) instances to guarantee a clean-room testing environment between mutants.
+# MuSe
+A mutation-based tool for generating benchmarks by injecting vulnerabilities into smart contracts. It features 6 mutation operators to inject vulnerabilities.
+MuSe is based on a mutation testing tool called [SuMo](https://github.com/MorenaBarboni/SuMo-SOlidity-MUtator). SuMo was designed to run mutation testing on Solidity projects in a NodeJS environment. It can run test using [Truffle](https://github.com/trufflesuite/truffle), [Hardhat](https://hardhat.org/), [Brownie](https://github.com/eth-brownie/brownie)  and [Forge](https://github.com/foundry-rs/foundry). If needed, SuMo can also automatically spawn [Ganache](https://github.com/trufflesuite/ganache) instances to guarantee a clean-room testing environment between mutants.
 
 
 # Table of Contents
@@ -19,7 +18,7 @@ SuMo was designed to run mutation testing on Solidity projects in a NodeJS envir
 To install sumo run ```npm install @geriul/sumo```
 
 # Configuration ⚙️
-Before using SuMo you must specify your desired configuration in a [sumo-config.js](https://github.com/GerardoIuliano/SuMo-SOlidity-MUtator/blob/master/src/sumo-config.js) in the root directory of your project. The ```sumo-config.js``` is automatically generated upon installation.
+Before using MuSe you must specify your desired configuration in a [sumo-config.js](https://github.com/GerardoIuliano/SuMo-SOlidity-MUtator/blob/master/src/sumo-config.js) in the root directory of your project. The ```sumo-config.js``` is automatically generated upon installation.
 
 Here's a simple example of ```sumo-config.js```:
 
@@ -94,6 +93,18 @@ When choosing ```forge``` :
 
 # CLI Usage
 
+## Mutation operators to inject vulnerabilities
+
+| Operator            | Vulnerability                         |                 Description                    |
+|-------------------- |---------------------------------------|------------------------------------------------|
+| `UC`                | Unchecked low-level call return value | Low-level calls do not throw an exception on failure but return false. Failing to check the return status may lead to critical vulnerabilities. |
+| `US`                | Unchecked send                        | The send function does not throw an exception on failure but returns false. Failing to check the return status may lead to critical vulnerabilities. |
+| `TX`                | Authentication through tx.origin      | Using tx.origin variable for authorization could make a contract vulnerable if an authorized account calls into a malicious contract. |
+| `DTU`               | Delegatecall to untrusted callee      | Delegatecall executes the code at the target address in the context of the calling contract. This allows a SC to load code from a different address at runtime. |
+| `UR`                | Unused return                         | The return value of an external call is not stored in a local or state variable. |
+| `CL`                | Multiple calls in a loop              | Calls inside a loop might lead to a denial-of-service attack. |
+
+
 ## Selecting the Mutation Operators
 
 Before starting the mutation process you can choose which mutation operators to use:
@@ -111,17 +122,6 @@ Before starting the mutation process you can choose which mutation operators to 
 | `lookup`    | Generates the mutations and saves them to ./sumo/generated.csv without starting mutation testing. | `npx/yarn sumo lookup` | `$ npx sumo lookup` |
 | `mutate`    | Generates the mutations and saves a copy of each `.sol` mutant to  to ./sumo/mutants. | `npx/yarn sumo mutate` | `$ npx sumo mutate` |
 
-## Mutation operators to inject vulnerabilities
-
-| Operator            | Vulnerability                         |                 Description                    |
-|-------------------- |---------------------------------------|------------------------------------------------|
-| `UC`                | Unchecked low-level call return value | Low-level calls do not throw an exception on failure but return false. Failing to check the return status may lead to critical vulnerabilities. |
-| `US`                | Unchecked send                        | The send function does not throw an exception on failure but returns false. Failing to check the return status may lead to critical vulnerabilities. |
-| `TX`                | Authentication through tx.origin      | Using tx.origin variable for authorization could make a contract vulnerable if an authorized account calls into a malicious contract. |
-| `DTU`               | Delegatecall to untrusted callee      | Delegatecall executes the code at the target address in the context of the calling contract. This allows a SC to load code from a different address at runtime. |
-| `UR`                | Unused return                         | The return value of an external call is not stored in a local or state variable. |
-| `CL`                | Multiple calls in a loop              | Calls inside a loop might lead to a denial-of-service attack. |
-
 
 ## Running Mutation Testing
 
@@ -133,7 +133,7 @@ Before starting the mutation process you can choose which mutation operators to 
 | `restore`    | Restores the SUT files to a clean version. This should be executed if you suddenly interrupt the mutation process. Note that the restore command overwrites your codebase with the files stored in the ```sumo/baseline``` folder. If you need to restore the project files, make sure to do so before performing other operations as the baseline is automatically refreshed on subsequent preflight or test runs.| `$ npx/yarn sumo restore` | `$ npx sumo restore`|
 
 ## Viewing the results
-SuMo automatically creates a ```sumo\results``` folder in the root directory of the project with the following reports: <br/>
+MuSe automatically creates a ```sumo\results``` folder in the root directory of the project with the following reports: <br/>
 * ```operators.xlsx``` Results of the mutation testing process grouped by operator
 * ```results.csv``` Results of the mutation testing process for each mutant. This synchronous log is updated each time a mutant is assigned a status
 * ```sumo-log.txt``` Logs info about the mutation testing process
@@ -194,7 +194,7 @@ For example, consider the following package.json scripts:
     test "hardhat test --bail && forge test --fail-fast"
  }
 ```
-If you make SuMo use hardhat to compile the contracts, make sure that the ```buildDir``` points to the hardhat compiled artifacts and not to the forge ones, and vice versa.
+If you make MuSe use hardhat to compile the contracts, make sure that the ```buildDir``` points to the hardhat compiled artifacts and not to the forge ones, and vice versa.
 
 # Mutation Operators 👾
 
@@ -206,6 +206,17 @@ Some mutation operators foresee a **minimal** version:
 * The **minimal** operators consist of simplified rules that aim to limit the generation of likely subsumed mutants and speed up the testing process.
 
 By default, SuMo employs the **extended** operators. However, you can enable the minimal rules from the ```sumo-config.js``` file.
+
+## Vulnerability Mutation Operators
+
+| Operator | Name | Mutation Example |  Minimal version available |
+| ------ | ------ |  ------ | :----: |
+| UC  | Unchecked low-level call return value | ```require(address.call())``` &rarr; ```address.call()```     |  N |
+| US  | Unchecked send                        | ```require(address.send())``` &rarr; ```address.send()```     |  N |
+| TX  | Authentication through tx.origin      | ```owner == msg.sender```     &rarr; ```owner == tx.origin``` |  N |
+| DTU | Delegatecall to untrusted callee      | ```address.delegatecall()``` &rarr; ```function setDelegate(address _addr){addr = _addr} addr.delegatecall()``` |  N |
+| UR  | Unused return                         | ```c = SafeMath.add(a, b)``` &rarr; ```SafeMath.add(a, b)``` <br /> ```<``` &rarr; ```>=``` |  N |
+| CL  | Multiple calls in a loop              | ```address.call()``` &rarr; ```for(uint i=0; i<1000; i++){address.call()}``` |  N |
 
 ## Traditional Mutation Operators
 
@@ -261,20 +272,3 @@ By default, SuMo employs the **extended** operators. However, you can enable the
 | VUR | Variable Unit Replacement | ```wei``` &rarr; ```ether```  <br /> ```minutes``` &rarr; ```hours``` |  Y |
 | VVR | Variable Visibility Replacement | ```uint private data;``` &rarr; ```uint public data;``` |  Y |
 
-
-# Publications
-
-To cite SuMo, please use the following:
-
-```
-@article{BARBONI2022111445,
-  title = {SuMo: A mutation testing approach and tool for the Ethereum blockchain},
-  journal = {Journal of Systems and Software},
-  volume = {193},
-  pages = {111445},
-  year = {2022},
-  issn = {0164-1212},
-  doi = {https://doi.org/10.1016/j.jss.2022.111445},
-  author = {Morena Barboni and Andrea Morichetta and Andrea Polini}
-}
-```

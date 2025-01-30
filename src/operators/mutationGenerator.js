@@ -89,15 +89,15 @@ const UORDOperator = require('./standard/unary-replacement')
 
 
 
-const GBOperator = require('./gg/gas-bomb')
-const ROSOperator = require('./gg/reentrancy-order-swap')
-const CLOperator = require('./gg/calls-loop')
-const AVOperator = require('./gg/assert-violation')
-const UCOperator = require('./gg/unchecked-call')
-const USOperator = require('./gg/unchecked-send')
-const DTUOperator = require('./gg/delegatecall-to-untrusted')
-const UROperator = require('./gg/unused-return')
-const TXOperator = require('./gg/tx-origin')
+const GBOperator = require('./MuSe/gas-bomb')
+const ROSOperator = require('./MuSe/reentrancy-order-swap')
+const CLOperator = require('./MuSe/calls-loop')
+const AVOperator = require('./MuSe/assert-violation')
+const UCOperator = require('./MuSe/unchecked-call')
+const USOperator = require('./MuSe/unchecked-send')
+const DTUOperator = require('./MuSe/delegatecall-to-untrusted')
+const UROperator = require('./MuSe/unused-return')
+const TXOperator = require('./MuSe/tx-origin')
 
 function MutationOperators(operators) {
   this.operators = operators
