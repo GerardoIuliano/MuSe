@@ -8,42 +8,39 @@ function USOperator() {
 USOperator.prototype.getMutations = function(file, source, visit) {
     const mutations = [];
 
-    const isSendOrCall = (node) => {
-        if (!node) return false;
+    const isSend = (node) => {
+        if (!node || !node.type) return false;
         return node.type === 'MemberAccess' &&  (node.memberName === 'send');
     }
 
-    // Funzione per controllare se un nodo contiene chiamate a `send`
     const requireContainsSend = (node) => {
-        // Funzione ricorsiva per controllare le espressioni
         const checkExpression = (expr) => {
-            if (!expr) return false;
-    
-            if (expr.type === 'MemberAccess' && 
+            if (!expr || !expr.type) return false;
+
+            if (expr.type === 'MemberAccess' &&
                 ['send'].includes(expr.memberName)) {
-                const start = node.range[0];
-                const end = node.range[1];
                 return true;
             }
 
-            if(node.type === 'UnaryOperation'){
-                return checkExpression(node.subExpression);
+            if(expr.type === 'UnaryOperation'){
+                return checkExpression(expr.subExpression);
             }
-    
-            if (node.type === 'BinaryOperation') {
-                return checkExpression(node.right);
+
+            if (expr.type === 'BinaryOperation') {
+                return checkExpression(expr.right);
             }
-    
-            // Se l'espressione ha un membro, controlla ricorsivamente
+
             if (expr.expression) {
                 return checkExpression(expr.expression);
             }
-    
+
             return false;
         };
 
-        // Controlla se il tipo di dichiarazione è ExpressionStatement
-        if (node.type === 'ExpressionStatement' &&
+        if (node.type &&
+            node.type === 'ExpressionStatement' &&
+            node.expression &&
+            node.expression.type &&
             node.expression.type === 'FunctionCall' &&
             (node.expression.expression.name === 'require' || node.expression.expression.name === 'assert')
         ) {
@@ -56,7 +53,6 @@ USOperator.prototype.getMutations = function(file, source, visit) {
         }
         return false;
     };
-    
 
     visit({
         ExpressionStatement: (node) => {
@@ -71,7 +67,7 @@ USOperator.prototype.getMutations = function(file, source, visit) {
                     .replace(/^require\s*\(\s*!?\s*/, '')
                     .replace(/^assert\s*\(\s*!?\s*/, '')
                     .replace(/\s*\)\s*;?$/, '');
-                
+
                 // Rimuove tutto dalla virgola successiva all'ultimo ")" fino a ";" finale
                 const lastClosingParenIndex = mutatedString.lastIndexOf(')');
                 const commaIndex = mutatedString.indexOf(',', lastClosingParenIndex);
@@ -84,38 +80,38 @@ USOperator.prototype.getMutations = function(file, source, visit) {
         },
         IfStatement: (node) => {
             const condition = node.condition;
+            if ((condition.expression && isSend(condition.expression)) ||
+                (condition.subExpression && condition.subExpression.expression && isSend(condition.subExpression.expression))) {
 
-            if ((condition.expression && isSendOrCall(condition.expression)) || (condition.subExpression && condition.subExpression.expression && isSendOrCall(condition.subExpression.expression))) {
                 const start = node.range[0];
-                const end = node.range[1] +1;
-                const startLine = node.loc.start.line;
-                const endLine = node.loc.end.line;
+                const end = node.range[1] + 1;
                 const original = source.slice(start, end);
+                const callExpression = condition.expression
+                    ? source.slice(condition.range[0], condition.range[1] + 1)
+                    : source.slice(condition.subExpression.range[0], condition.subExpression.range[1] + 1);
+                const cleaned = original.replace(/\bthrow\s*;\s*/g, '')
+                                        .replace(/\brevert\s*;\s*/g, '')
+                                        .trim();
+                let trueBranch = "";
 
-                const callExpression = condition.expression ? source.slice(condition.range[0], condition.range[1] + 1) : source.slice(condition.subExpression.range[0], condition.subExpression.range[1] + 1);
-
-                const hasBraces = original.includes("{");
-                const hasElse = source.slice(end).trim().startsWith("else");
-
-                let mutatedString;
-
-                const cleanedOriginal = original
-                    .replace(/\bthrow\s*;\s*/g, '') // Rimuove `throw;` anche con spazi extra o invisibili
-                    .replace(/\brevert\s*;\s*/g, '') // Rimuove `revert;` con eventuali spazi extra
-                    .trim(); // Rimuove gli spazi bianchi prima e dopo
-
-                if (hasBraces) {
-                    // Se ci sono le parentesi graffe, modifica normalmente
-                    mutatedString = `if (true) { ${callExpression}; ${cleanedOriginal.slice(cleanedOriginal.indexOf("{") + 1, cleanedOriginal.lastIndexOf("}") + 1).trim()}`;
-                    if (hasElse) {
-                        mutatedString += "}";  // Aggiungi la graffa solo se non c'è un `else`
+                if (cleaned.includes("{")) {
+                    const startBrace = cleaned.indexOf("{");
+                    let count = 0, endBrace = -1;
+                    for (let i = startBrace; i < cleaned.length; i++) {
+                        if (cleaned[i] === "{") count++;
+                        else if (cleaned[i] === "}") {
+                            count--;
+                            if (count === 0) { endBrace = i; break; }
+                        }
                     }
+                    trueBranch = cleaned.slice(startBrace + 1, endBrace).trim();
                 } else {
-                    const expressionAfterIf = cleanedOriginal.slice(cleanedOriginal.indexOf(")") + 2).trim();
-                    mutatedString = `if (true) { ${callExpression}; ${expressionAfterIf} }`;
+                    trueBranch = cleaned.slice(cleaned.indexOf(")") + 2)
+                                          .split("else")[0].trim();
                 }
+                const mutatedString = `${callExpression}; ${trueBranch}`;
 
-                mutations.push(new Mutation(file, start, end, startLine, endLine, original, mutatedString, this.ID));
+                mutations.push(new Mutation(file, start, end, node.loc.start.line, node.loc.end.line, original, mutatedString, this.ID));
             }
         }
     });

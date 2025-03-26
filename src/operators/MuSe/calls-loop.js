@@ -36,7 +36,7 @@ CLOperator.prototype.getMutations = function(file, source, visit) {
 
         //console.log(JSON.stringify(node));
 
-        const mutationCode = `for (uint i = 0; i < 1000; i++) { ${original} }`;
+        const mutationCode = `for (uint iCL = 0; iCL < 1000; iCL++) { ${original} }`;
         
         mutations.push(new Mutation(file, start, end, startLine, endLine, original, mutationCode, this.ID));
     }

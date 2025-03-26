@@ -98,6 +98,18 @@ const USOperator = require('./MuSe/unchecked-send')
 const DTUOperator = require('./MuSe/delegatecall-to-untrusted')
 const UROperator = require('./MuSe/unused-return')
 const TXOperator = require('./MuSe/tx-origin')
+const UR1Operator = require('./MuSe/unused-return-1')
+const UR2Operator = require('./MuSe/unused-return-2')
+const UTROperator = require('./MuSe/unchecked-transfer')
+const TDOperator = require('./MuSe/timestamp-dependence')
+const REOperator = require('./MuSe/reentrancy')
+const IUOOperator = require('./MuSe/integer-underflow-overflow')
+const USDOperator = require('./MuSe/unprotected-selfdestruct')
+const LEOperator = require('./MuSe/locking-ether')
+
+
+
+
 
 function MutationOperators(operators) {
   this.operators = operators
@@ -277,5 +289,13 @@ module.exports = {
   USOperator: USOperator,
   DTUOperator: DTUOperator,
   UROperator: UROperator,
-  CLOperator: CLOperator
+  CLOperator: CLOperator,
+  UR1Operator: UR1Operator,
+  UR2Operator: UR2Operator,
+  UTROperator: UTROperator,
+  TDOperator: TDOperator,
+  REOperator: REOperator,
+  IUOOperator: IUOOperator,
+  USDOperator: USDOperator,
+  LEOperator: LEOperator
 }

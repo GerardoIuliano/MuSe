@@ -1,7 +1,7 @@
 {
   "author": "Anonymus",
   "name": "@geriul/sumo",
-  "version": "3.0.5",
+  "version": "3.0.16",
   "description": "A mutation testing tool for Ethereum smart contracts",
   "repository": {
     "type": "git",
@@ -23,7 +23,7 @@
     "postinstall": "node ./scripts/init.js"
   },
   "dependencies": {
-    "@geriul/sumo": "^3.0.5",
+    "@geriul/sumo": "^3.0.16",
     "@solidity-parser/parser": "^0.15.0",
     "app-root-path": "3.1.0",
     "chalk": "^4.1.2",

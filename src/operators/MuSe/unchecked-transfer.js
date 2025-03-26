@@ -1,41 +1,35 @@
 const Mutation = require('../../mutation');
 
-function UCOperator() {
-    this.ID = "UC";
-    this.name = "unchecked-call";
+function USOperator() {
+    this.ID = "UTR";
+    this.name = "unchecked-transfer";
 }
 
-UCOperator.prototype.getMutations = function(file, source, visit) {
+USOperator.prototype.getMutations = function(file, source, visit) {
     const mutations = [];
 
-    const isCall = (node) => {
+    const isTransferOrTransferFrom = (node) => {
         if (!node || !node.type) return false;
-        return node.type === 'MemberAccess' &&  (node.memberName === 'call' || 
-            node.memberName === 'delegatecall' || node.memberName === 'staticcall' || node.memberName === 'callcode');
+        return node.type === 'MemberAccess' && (node.memberName === 'transfer' || node.memberName === 'transferFrom');
     }
 
-    // Funzione per controllare se un nodo contiene chiamate a `call`
-    const requireContainsCall = (node) => {
-        // Funzione ricorsiva per controllare le espressioni
+    const requireContainsTransfer = (node) => {
         const checkExpression = (expr) => {
             if (!expr || !expr.type) return false;
 
             if (expr.type === 'MemberAccess' &&
-                ['call', 'delegatecall', 'staticcall', 'callcode'].includes(expr.memberName)) {
-                const start = node.range[0];
-                const end = node.range[1];
+                ['transfer'].includes(expr.memberName)) {
                 return true;
             }
 
-            if (node.type === 'UnaryOperation'){
-                return checkExpression(node.subExpression);
+            if(expr.type === 'UnaryOperation'){
+                return checkExpression(expr.subExpression);
             }
 
-            if (node.type === 'BinaryOperation') {
-                return checkExpression(node.right);
+            if (expr.type === 'BinaryOperation') {
+                return checkExpression(expr.right);
             }
 
-            // Se l'espressione ha un membro, controlla ricorsivamente
             if (expr.expression) {
                 return checkExpression(expr.expression);
             }
@@ -43,7 +37,6 @@ UCOperator.prototype.getMutations = function(file, source, visit) {
             return false;
         };
 
-        // Controlla se il tipo di dichiarazione è ExpressionStatement
         if (node.type &&
             node.type === 'ExpressionStatement' &&
             node.expression &&
@@ -51,8 +44,9 @@ UCOperator.prototype.getMutations = function(file, source, visit) {
             node.expression.type === 'FunctionCall' &&
             (node.expression.expression.name === 'require' || node.expression.expression.name === 'assert')
         ) {
+
             return node.expression.arguments.some(arg => {
-                if( arg.type === "UnaryOperation"){
+                if(arg.type && arg.type === "UnaryOperation"){
                     return checkExpression(arg.subExpression);
                 }
                 return checkExpression(arg);
@@ -61,10 +55,9 @@ UCOperator.prototype.getMutations = function(file, source, visit) {
         return false;
     };
 
-
     visit({
         ExpressionStatement: (node) => {
-            if (requireContainsCall(node)) {
+            if (requireContainsTransfer(node)) {
                 const start = node.range[0];
                 const end = node.range[1];
                 const startLine = node.loc.start.line;
@@ -79,6 +72,7 @@ UCOperator.prototype.getMutations = function(file, source, visit) {
                 // Rimuove tutto dalla virgola successiva all'ultimo ")" fino a ";" finale
                 const lastClosingParenIndex = mutatedString.lastIndexOf(')');
                 const commaIndex = mutatedString.indexOf(',', lastClosingParenIndex);
+
                 if (commaIndex !== -1) {
                     mutatedString = mutatedString.slice(0, commaIndex).trim();
                 }
@@ -88,8 +82,8 @@ UCOperator.prototype.getMutations = function(file, source, visit) {
         },
         IfStatement: (node) => {
             const condition = node.condition;
-            if ((condition.expression && isCall(condition.expression)) ||
-                (condition.subExpression && condition.subExpression.expression && isCall(condition.subExpression.expression))) {
+            if ((condition.expression && isTransferOrTransferFrom(condition.expression)) ||
+                (condition.subExpression && condition.subExpression.expression && isTransferOrTransferFrom(condition.subExpression.expression))) {
 
                 const start = node.range[0];
                 const end = node.range[1] + 1;
@@ -127,4 +121,4 @@ UCOperator.prototype.getMutations = function(file, source, visit) {
     return mutations;
 };
 
-module.exports = UCOperator;
+module.exports = USOperator;
