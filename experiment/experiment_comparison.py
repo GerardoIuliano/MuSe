@@ -278,8 +278,8 @@ def process_findings_diff(baseline_csv, result_csv, output_csv):
     else:
         print("⚠️ No matching data found. Output CSV will not be created.")
 
-# Funzione che produce le diff in un csv
-def filter_by_original_name(difference_csv, target_csv, output_csv):
+
+def filter_sample(difference_csv, target_csv, output_csv):
     # Carica i due CSV
     df_diff = pd.read_csv(difference_csv)
     df_target = pd.read_csv(target_csv)
@@ -477,9 +477,9 @@ contracts_folder = '/Users/matteocicalese/PycharmProjects/SuMo-SOlidity-MUtator/
 original_folder = '/Users/matteocicalese/PycharmProjects/smartbugs-wild/contracts'
 mutation_results_folder = '/Users/matteocicalese/PycharmProjects/SuMo-SOlidity-MUtator/sumo/results'
 
-json_folder_original = '/Users/matteocicalese/results/slither-0.10.4/CL_ORIGINAL'
+json_folder_original = '/Users/matteocicalese/results/slither-0.10.4/UR_ORIGINAL'
 result_original = '/Users/matteocicalese/PycharmProjects/SuMo-SOlidity-MUtator/experiment/resultOriginal.csv'
-json_folder_mutated = '/Users/matteocicalese/results/slither-0.10.4/CL_MUTATED'
+json_folder_mutated = '/Users/matteocicalese/results/slither-0.10.4/UR1_MUTATED'
 result_mutated = '/Users/matteocicalese/PycharmProjects/SuMo-SOlidity-MUtator/experiment/resultMutated.csv'
 
 new_experiment_diffs = '/Users/matteocicalese/PycharmProjects/SuMo-SOlidity-MUtator/experiment/newExperiment.csv'
@@ -494,7 +494,7 @@ original_experiment_diffs = '/Users/matteocicalese/PycharmProjects/SuMo-SOlidity
 
 class FirstStep:
     def __init__(self):
-        clean_folder(contracts_folder)
+        # clean_folder(contracts_folder)
         clean_folder(mutation_results_folder)
         # Sampling del csv originale per considerare un numero di contratti gestibile
         sample_by_operator(dataset, sampled, 1500)
@@ -502,7 +502,7 @@ class FirstStep:
         # count_rows_per_operator(sampled)
 
         # Filtro il CSV in base all'operatore che sto analizzando
-        filter_by_operator(sampled, sampled_filtered_by_operator, "CL")
+        filter_by_operator(sampled, sampled_filtered_by_operator, "UR")
 
         # Estraggo i contratti originali relative alle entry del csv samplato e le copio in contracts per effettuare le mutazione e runnare Slither
         extract_files_from_csv(sampled_filtered_by_operator, original_folder, contracts_folder)
@@ -510,13 +510,14 @@ class FirstStep:
 # FirstStep()
 
 
+# Vengono mutati i contratti estratti e si runna Slither sui contratti originali e quelli mutati
+# I contratti originali vengono rianalizzati perchè servono i json affinchè si possa fare il confronto
+
 
 class SecondStep:
     def __init__(self):
-        # Vengono mutati i contratti estratti e runno Slither sui contratti originali e quelli mutati
-
         # Estraggo i findings per fare il confronto con la vecchia run dell'esperimento
-        extract_findings(json_folder_original, result_original)       # Passaggio superfluo, si potevano prendere le diff dal vecchio csv
+        extract_findings(json_folder_original, result_original)
         extract_findings(json_folder_mutated, result_mutated)
         # count_rows(result_original)
         # count_rows(result_mutated)
@@ -526,7 +527,8 @@ class SecondStep:
         # count_rows(new_experiment_diffs)
 
         # Filtro il csv prodotto per avere solo le entry necessarie al confronto (perchè non tutti i contratti originali vengono mutati)
-        filter_by_original_name(new_experiment_diffs, sampled_filtered_by_operator, original_experiment_diffs)
+        filter_sample(new_experiment_diffs, sampled_filtered_by_operator, original_experiment_diffs)
+        # count_rows(original_experiment_diffs)
 
         convert_column_to_json(original_experiment_diffs)
 
@@ -534,14 +536,14 @@ class SecondStep:
         print("--Old Mutation Run--")
         drop_empty_findings_x(original_experiment_diffs)
         count_rows(original_experiment_diffs)
-        count_tp_fn(original_experiment_diffs, "controlled-delegatecall")
+        count_tp_fn(original_experiment_diffs, "unused-return")
         # print("")
         # count_findings(original_experiment_diffs, "differences")
 
         print("\n--New Mutation Run--")
         drop_empty_findings_x(new_experiment_diffs)
         count_rows(new_experiment_diffs)
-        count_tp_fn(new_experiment_diffs, "controlled-delegatecall")
+        count_tp_fn(new_experiment_diffs, "unused-return")
         # print("")
         # count_findings(new_experiment_diffs, "differences")
 
