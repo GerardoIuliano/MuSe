@@ -125,7 +125,7 @@ Reporter.prototype.logLookup = function (mutations, genTime, operators) {
   //console.log(chalk.yellow.bold("Lookup") + " 🧬");
 
   const lookup = mutations.length + " mutation(s) found in " + genTime + " seconds \n" +
-    "Generated mutations saved to sumo/results/results.csv and sumo/results/mutations.json \n"
+    "Generated mutations saved to sumo/results/sumo_results.csv and sumo/results/mutations.json \n"
 
   fs.appendFileSync(reportTxt, "\n\n>>> LOOKUP SUMMARY \n\n" + lookup + "\n", function (err) {
     if (err) return console.log(err);
@@ -374,18 +374,18 @@ Reporter.prototype.saveGeneratedMutantsCsv = function (mutations) {
   const csvString = Papa.unparse(csvData);
 
   // Write the CSV string to a file
-  fs.writeFileSync(resultsDir + "/results.csv", csvString, function (err) {
+  fs.writeFileSync(resultsDir + "/sumo_results.csv", csvString, function (err) {
     if (err) return console.log(err);
   });
 }
 
 
 /**
- * Update the status and testingTime of the currently tested mutant to the results.csv synchronous log
+ * Update the status and testingTime of the currently tested mutant to the sumo_results.csv synchronous log
  * @param {*} mutant tested mutant object
  */
 Reporter.prototype.saveResultsCsv = function (mutant) {
-  const filePath = resultsDir + "/results.csv";
+  const filePath = resultsDir + "/sumo_results.csv";
   if (fs.existsSync(filePath)) {
     const existingData = fs.readFileSync(filePath, "utf8");
     const parsedData = Papa.parse(existingData, { header: true });

@@ -2,7 +2,7 @@ const Mutation = require('../../mutation');
 
 function CLOperator() {
     this.ID = "CL";
-    this.name = "calls-lopp";
+    this.name = "calls-loop";
 }
 
 CLOperator.prototype.getMutations = function(file, source, visit) {
