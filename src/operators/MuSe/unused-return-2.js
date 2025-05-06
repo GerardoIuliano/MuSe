@@ -9,23 +9,24 @@ UR2Operator.prototype.getMutations = function(file, source, visit) {
     const mutations = [];
 
     function hasFunctionCall(node) {
-        if (node.type && node.type === "FunctionCall") {
-            return true;
-        }
-        if (node.type && node.type === "BinaryOperation") {
-            return (
-                (node.left && hasFunctionCall(node.left)) ||
-                (node.right && hasFunctionCall(node.right))
-            );
+        if (!node) return false;
+        if (node.type === "FunctionCall") return true;
+        if (node.type === "BinaryOperation") {
+            return hasFunctionCall(node.left) || hasFunctionCall(node.right);
         }
         return false;
     }
 
     function getDefaultValue(typeName) {
         if (/^uint\d*$/.test(typeName) || /^int\d*$/.test(typeName)) {
-            return '0'; // Copre tutti i uintX e intX (es. uint8, uint16, int128)
+            return '0';
+        }
+        if (/^bytes\d+$/.test(typeName)) {
+            return '0';
         }
         switch (typeName) {
+            case 'bytes':
+                return 'new bytes(0)';
             case 'bool':
                 return 'false';
             case 'string':
@@ -33,8 +34,33 @@ UR2Operator.prototype.getMutations = function(file, source, visit) {
             case 'address':
                 return 'address(0)';
             default:
-                return '0'; // Default fallback
+                return null; // tipo non gestito => nessuna mutazione
         }
+    }
+
+    function reconstructType(typeNode, fallbackStorageLocation) {
+        if (!typeNode) return 'unknown';
+
+        if (typeNode.type === "ArrayTypeName") {
+            const baseType = reconstructType(typeNode.baseTypeName);
+            const storage = typeNode.storageLocation || fallbackStorageLocation || '';
+            return `${baseType}[]${storage ? ' ' + storage : ''}`;
+        }
+
+        if (typeNode.type === "UserDefinedTypeName" && typeNode.namePath) {
+            const storage = typeNode.storageLocation || fallbackStorageLocation || '';
+            return `${typeNode.namePath}${storage ? ' ' + storage : ''}`.trim();
+        }
+
+        let typeStr = "";
+        if (typeNode.name) {
+            typeStr = typeNode.name;
+        } else if (typeNode.type === "ElementaryTypeName") {
+            typeStr = typeNode.name;
+        }
+
+        const storage = typeNode.storageLocation || fallbackStorageLocation || '';
+        return `${typeStr}${storage ? ' ' + storage : ''}`.trim();
     }
 
     visit({
@@ -50,26 +76,37 @@ UR2Operator.prototype.getMutations = function(file, source, visit) {
                     const start = node.range[0];
                     const end = node.range[1] + 1;
 
-                    if (start >= functionStart && end <= functionEnd &&
+                    if (
+                        start >= functionStart && end <= functionEnd &&
                         node.initialValue &&
-                        hasFunctionCall(node.initialValue) &&
-                        node.variables[0] && node.variables[0].typeName && node.variables[0].typeName.name
+                        hasFunctionCall(node.initialValue)
                     ) {
+                        // Evita di mutare se la chiamata contiene la parola 'payable'
+                        const functionCallCode = source.slice(node.initialValue.range[0], node.initialValue.range[1] + 1);
+                        if (/\bpayable\b/.test(functionCallCode)) return;
+
+                        const declaredVariables = node.variables.filter(v => v !== null);
+                        if (declaredVariables.length !== 1) return;
+
+                        const variable = declaredVariables[0];
+                        if (!variable || !variable.name || !variable.typeName) return;
+
+                        // Salta se il tipo è un array
+                        if (variable.typeName.type === "ArrayTypeName") return;
+
                         const original = source.slice(start, end);
-                        const declarationMatch = original.match(/(\w+\s+\w+)\s*=\s*([^;]+);/);
+                        const varName = variable.name;
+                        const fullType = reconstructType(variable.typeName, variable.storageLocation);
+                        const simpleTypeName = fullType.split(/[ \[]/)[0];
+                        const defaultValue = getDefaultValue(simpleTypeName);
 
-                        if (declarationMatch) {
-                            const variableTypeAndName = declarationMatch[1];
-                            const functionCall = declarationMatch[2];
-                            const typeName = node.variables[0].typeName.name;
-                            const defaultValue = getDefaultValue(typeName);
+                        // Salta se il tipo non è supportato
+                        if (defaultValue === null) return;
 
-                            // Assegna un valore predefinito alla variabile e lascia la chiamata a parte
-                            const mutatedString = `${variableTypeAndName} = ${defaultValue}; ${functionCall};`;
+                        const mutatedString = `${fullType} ${varName} = ${defaultValue}; ${source.slice(node.initialValue.range[0], node.initialValue.range[1] + 1)};`;
 
-                            modifiedFunctionCode = modifiedFunctionCode.replace(original, mutatedString);
-                            hasMutations = true;
-                        }
+                        modifiedFunctionCode = modifiedFunctionCode.replace(original, mutatedString);
+                        hasMutations = true;
                     }
                 }
             });

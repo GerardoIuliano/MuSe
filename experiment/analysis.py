@@ -1,5 +1,6 @@
 import csv
 import json
+import os
 import re
 import tarfile
 from collections import defaultdict
@@ -298,55 +299,74 @@ def compute_diff(baseline, result):
     return diff
 
 
+def _canonical_name(raw):
+    """
+    Restituisce il nome file in forma canonica:
+        - basename (niente path)
+        - tagliato al primo '-'
+        - tutto lower‑case
+        - termina con '.sol'
+        - niente spazi esterni
+    """
+    if pd.isna(raw):
+        return ""
+
+    name = os.path.basename(str(raw).strip())
+    name = name.split("-", 1)[0]
+    name = name.lower()
+    if not name.endswith(".sol"):
+        name += ".sol"
+
+    return name
+
+
 def process_findings_diff(baseline_csv, result_csv, output_csv):
     """
-    Processes differences between the baseline CSV and the result CSV, then writes the output to a CSV.
-
-    Both CSV files are normalized to use lower-case column names. The baseline CSV is expected to contain
-    at least the columns 'nome' and 'findings', while the result CSV should contain at least 'nome', 'findings',
-    and 'operator'. For every row in the baseline CSV, the function finds rows in the result CSV where the 'nome'
-    value starts with the baseline 'nome' (as a prefix, case sensitive). This ensures that, for example,
-    "Zapper_Matic_Bridge_V1_2.sol" matches "Zapper_Matic_Bridge_V1_2.sol-m5c5f602f.sol" but not
-    "RenERC20LogicV1_2.sol-m33e85fdc.sol".
-
-    For every match, it computes the difference (using an external function compute_diff) between the parsed findings
-    and outputs a row with the following columns:
-        - fullname_y: from the baseline CSV 'nome'
-        - fullname_x: from the result CSV 'nome'
-        - findings_y: baseline CSV 'findings'
-        - findings_x: result CSV 'findings'
-        - operator: taken from the result CSV
-        - differences: JSON stringified differences.
-
-    Parameters:
-        baseline_csv (str): Path to the baseline CSV file.
-        result_csv (str): Path to the result CSV file.
-        output_csv (str): Path to the output CSV file where the processed data will be saved.
+    Confronta baseline e result in modo robusto:
+        - normalizza le colonne
+        - usa _canonical_name per i confronti
+        - salva le differenze in output_csv
+        - stampa quanti file del baseline non hanno match
     """
-    # Load CSVs and normalize column names
+    # Carica i CSV
     df_base = pd.read_csv(baseline_csv)
-    df_res = pd.read_csv(result_csv)
-    df_base.columns = df_base.columns.str.strip().str.lower()
-    df_res.columns = df_res.columns.str.strip().str.lower()
+    df_res  = pd.read_csv(result_csv)
 
-    output_rows = []
+    # Normalizza i nomi colonna
+    df_base.columns = df_base.columns.str.strip().str.lower()
+    df_res.columns  = df_res.columns.str.strip().str.lower()
+
+    # Crea la colonna “canon” in entrambi i dataframe
+    df_base["canon"] = df_base["nome"].apply(_canonical_name)
+    df_res["canon"]  = df_res["nome"].apply(_canonical_name)
+
+    # (Opzionale) indicizza il result su canon per lookup O(1)
+    res_groups = df_res.groupby("canon")
+
+    output_rows  = []
+    no_match_cnt = 0
 
     for _, base_row in df_base.iterrows():
-        # Baseline value (always ending with .sol) and trim whitespace
-        fullname_x = base_row["nome"].strip()
-        findings_x = str(base_row.get("findings", "")).strip()
+        canon_key   = base_row["canon"]
+        fullname_x  = base_row["nome"].strip()
+        findings_x  = str(base_row.get("findings", "")).strip()
         base_findings = parse_findings(findings_x)
 
-        # Find rows in df_res where the 'nome' starts with the baseline 'nome'
-        matching_rows = df_res[df_res["nome"].str.startswith(fullname_x, na=False)]
+        # Recupera (se esistono) tutti i result con lo stesso canon
+        if canon_key in res_groups.groups:
+            matching_rows = res_groups.get_group(canon_key)
+        else:
+            matching_rows = pd.DataFrame()   # vuoto
 
         if matching_rows.empty:
             print(f"[!] No match found for file: {fullname_x}")
+            no_match_cnt += 1
             continue
 
+        # Per ogni riga matchata calcola la diff
         for _, res_row in matching_rows.iterrows():
-            fullname_y = res_row["nome"]
-            findings_y = str(res_row.get("findings", "")).strip()
+            fullname_y      = res_row["nome"]
+            findings_y      = str(res_row.get("findings", "")).strip()
             result_findings = parse_findings(findings_y)
 
             diff = compute_diff(base_findings, result_findings)
@@ -356,16 +376,19 @@ def process_findings_diff(baseline_csv, result_csv, output_csv):
                 "fullname_x": fullname_y,
                 "findings_y": findings_x,
                 "findings_x": findings_y,
-                "operator": res_row["operator"],
+                "operator":   res_row.get("operator", ""),
                 "differences": json.dumps(diff, ensure_ascii=False)
             })
 
+    # Scrittura output
     if output_rows:
-        df_output = pd.DataFrame(output_rows)
-        df_output.to_csv(output_csv, index=False)
-        print(f"✅ Diff saved to: {output_csv}")
+        pd.DataFrame(output_rows).to_csv(output_csv, index=False)
+        print(f"✅ Diff salvato in: {output_csv}")
     else:
-        print("⚠️ No matching data found. Output CSV will not be created.")
+        print("⚠️ Nessun dato corrispondente. Output CSV non creato.")
+
+    # Riepilogo finale
+    print(f"📄 Contratti senza match: {no_match_cnt}")
 
 
 def update_operator_column_inplace(hash_operator_csv, target_csv):
@@ -503,36 +526,45 @@ def count_tp_fn(csv_path, keyword):
 
 
 
+
+
+
+
+
+
 sumo_mutation_results = '/Users/matteocicalese/PycharmProjects/SuMo-SOlidity-MUtator/sumo/results/sumo_results.csv'
 
-json_folder_original = '/Users/matteocicalese/results/slither-0.10.4/08_original'
+json_folder_original = '/Users/matteocicalese/results/slither-0.10.4/slither_original'
 result_original = '/Users/matteocicalese/PycharmProjects/SuMo-SOlidity-MUtator/analysis/resultOriginal.csv'
-json_folder_mutated = '/Users/matteocicalese/results/slither-0.10.4/08_mutated'
+json_folder_mutated = '/Users/matteocicalese/results/slither-0.10.4/slither_mutated'
 result_mutated = '/Users/matteocicalese/PycharmProjects/SuMo-SOlidity-MUtator/analysis/resultMutated.csv'
 
 diffs = '/Users/matteocicalese/PycharmProjects/SuMo-SOlidity-MUtator/analysis/differences.csv'
 diffs_filtered_by_operator = '/Users/matteocicalese/PycharmProjects/SuMo-SOlidity-MUtator/analysis/differences_filtered.csv'
 
-
-
+"""
+# Mutation types count
 count_operator_occurrences(sumo_mutation_results)
 
-
-"""
+# Findings extraction
 extract_findings(json_folder_original, result_original)
 extract_findings(json_folder_mutated, result_mutated)
+
+# Operator columns appending
 update_operator_column_inplace(sumo_mutation_results, result_mutated)
 
+# Diffs calculation (Errors: "No match found for file" means that some baseline contracts do not have a mutated version)
 process_findings_diff(result_original, result_mutated, diffs)
 
 
+# Results analysis
 print(f"Baseline Contracts: {count_rows(result_original)}")
 print(f"Mutated Contracts: {count_rows(result_mutated)}")
 
-filter_by_operator(diffs, diffs_filtered_by_operator, operator_value="IUO")
-print(count_rows(diffs_filtered_by_operator))
-analyze_differences_column(diffs_filtered_by_operator)
-count_tp_fn(diffs_filtered_by_operator, "timestamp")
-
-
+# Analysis by operator
+# filter_by_operator(diffs, diffs_filtered_by_operator, operator_value="TD")
+# analyze_differences_column(diffs_filtered_by_operator)
+# count_tp_fn(diffs_filtered_by_operator, "timestamp")
 """
+
+
