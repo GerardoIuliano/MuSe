@@ -495,6 +495,9 @@ def csv_beautifier(input_file: str):
     cols = ["ContractOriginal", "ContractMutated"] + [col for col in df.columns if col not in ["ContractOriginal", "ContractMutated"]]
     df = df[cols]
 
+    if "Operator" in df.columns:
+        df.loc[df["Operator"] == "LE", ["Replacement", "ExtractedFunctionMutation"]] = "N/A"
+
     # Sovrascrive il file originale con il risultato
     df.to_csv(input_file, index=False)
 
@@ -517,6 +520,26 @@ def count_analysis_failed_mismatches_by_operator(csv_path):
         counts = mismatches["operator"].value_counts()
         print("\n🔢 Mismatch per operatore:")
         print(counts)
+
+
+def drop_failed_cases(file_path: str) -> None:
+    """
+    Filtra un CSV eliminando le righe in cui:
+    - FindingsMutated == 'Analysis Failed'
+    - FindingsOriginal != 'Analysis Failed'
+
+    Sovrascrive il file originale con i dati filtrati.
+    """
+    # Legge il CSV
+    df = pd.read_csv(file_path)
+
+    # Applica il filtro
+    filtered_df = df[~((df['FindingsMutated'] == 'Analysis Failed') &
+                       (df['FindingsOriginal'] != 'Analysis Failed'))]
+
+    # Sovrascrive il file con i dati filtrati
+    filtered_df.to_csv(file_path, index=False)
+    print(f"File sovrascritto con i dati filtrati: {file_path}")
 
 
 
@@ -542,7 +565,7 @@ json_output_results = "/Users/matteocicalese/PycharmProjects/SuMo-SOlidity-MUtat
 json_output_results_filtered = "/Users/matteocicalese/PycharmProjects/SuMo-SOlidity-MUtator/sumo/results/results_filtered.json"
 
 json_folder_original = '/Users/matteocicalese/results/slither-0.10.4/slither_original'
-json_folder_mutated = '/Users/matteocicalese/results/slither-0.10.4/slither_mutated'
+json_folder_mutated = '/Users/matteocicalese/results/slither-0.10.4/20250506_1751'
 result_partial1 = '/Users/matteocicalese/PycharmProjects/SuMo-SOlidity-MUtator/analysis/result_partial1.csv'
 result_partial2 = '/Users/matteocicalese/PycharmProjects/SuMo-SOlidity-MUtator/analysis/result_partial2.csv'
 result_final = '/Users/matteocicalese/PycharmProjects/SuMo-SOlidity-MUtator/analysis/result_final.csv'
@@ -561,6 +584,8 @@ process_findings_diff_single_csv(result_partial2, result_final)
 count_analysis_failed_mismatches_by_operator(result_final)
 
 csv_beautifier(result_final)
+
+drop_failed_cases(result_final)
 
 
 convert_csv_to_json(result_final, json_output_results)

@@ -19,71 +19,66 @@ LEOperator.prototype.getMutations = function(file, source, visit) {
   const operator = this;
 
   const candidateFunctions = new Map(); // nome -> nodo
-  const calledFunctions = new Set(); // Set dei nomi delle funzioni chiamate
+  const calledFunctions = new Set(); // nomi delle funzioni chiamate
 
   visit({
     ContractDefinition: (contractNode) => {
-      if (contractNode && contractNode.kind !== "contract") return;
+      if (contractNode.kind !== "contract") return;
 
-      // Prima passata: trova le funzioni che contengono targetMethods
+      // 1. Raccogliamo le funzioni candidate
       contractNode.subNodes.forEach((subNode) => {
-        if (subNode.type === "FunctionDefinition" && !subNode.isConstructor && subNode.name) {
+        if (subNode.type === "FunctionDefinition" && subNode.name) {
           let containsTarget = false;
 
-          const checkStatements = (node) => {
+          const searchTargetCalls = (node) => {
             if (!node || typeof node !== 'object') return;
 
             if (node.type === "FunctionCall") {
               const callee = node.expression;
-              if (callee) {
-                if (callee.type === "Identifier" && targetMethods.includes(callee.name)) {
-                  containsTarget = true;
-                }
-                if (callee.type === "MemberAccess" && targetMethods.includes(callee.memberName)) {
-                  containsTarget = true;
-                }
+              if (callee?.type === "Identifier" && targetMethods.includes(callee.name)) {
+                containsTarget = true;
+              } else if (callee?.type === "MemberAccess" && targetMethods.includes(callee.memberName)) {
+                containsTarget = true;
               }
             }
 
             for (const key in node) {
-              const child = node[key];
-              if (typeof child === 'object') {
-                if (Array.isArray(child)) child.forEach(checkStatements);
-                else checkStatements(child);
+              const value = node[key];
+              if (typeof value === 'object') {
+                Array.isArray(value) ? value.forEach(searchTargetCalls) : searchTargetCalls(value);
               }
             }
           };
 
-          checkStatements(subNode.body);
+          searchTargetCalls(subNode.body);
+
           if (containsTarget) {
             candidateFunctions.set(subNode.name, subNode);
           }
         }
       });
 
-      // Seconda passata: cerca se le candidate sono chiamate da altre funzioni
-      const checkCalls = (node) => {
+      // 2. Trova tutte le funzioni chiamate nel contratto
+      const findCalledFunctions = (node) => {
         if (!node || typeof node !== 'object') return;
 
         if (node.type === "FunctionCall" && node.expression?.type === "Identifier") {
-          const calledName = node.expression.name;
-          if (candidateFunctions.has(calledName)) {
-            calledFunctions.add(calledName);
-          }
+          calledFunctions.add(node.expression.name);
+        } else if (node.type === "FunctionCall" && node.expression?.type === "MemberAccess") {
+          calledFunctions.add(node.expression.memberName);
         }
 
         for (const key in node) {
-          const child = node[key];
-          if (typeof child === 'object') {
-            if (Array.isArray(child)) child.forEach(checkCalls);
-            else checkCalls(child);
+          const value = node[key];
+          if (typeof value === 'object') {
+            Array.isArray(value) ? value.forEach(findCalledFunctions) : findCalledFunctions(value);
           }
         }
       };
 
-      checkCalls(contractNode);
+      findCalledFunctions(contractNode);
 
-      // Terza passata: elimina solo le funzioni candidate non chiamate
+      // 3. Elimina solo le candidate NON chiamate
       for (const [funcName, subNode] of candidateFunctions.entries()) {
         if (!calledFunctions.has(funcName)) {
           mutations.push(new Mutation(
