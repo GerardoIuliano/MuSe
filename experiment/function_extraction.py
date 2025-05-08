@@ -458,6 +458,9 @@ def process_findings_diff_single_csv(input_csv, output_csv):
     print(f"✅ Output saved with 'differences' column to: {output_csv}")
 
 
+import pandas as pd
+import os
+
 def csv_beautifier(input_file: str):
     # Carica il file CSV
     df = pd.read_csv(input_file)
@@ -491,15 +494,17 @@ def csv_beautifier(input_file: str):
                   else col[0].upper() + col[1:] if col and not col[0].isupper()
                   else col for col in df.columns]
 
+    # Imposta "N/A" per Replacement e ExtractedFunctionMutation se Operator è "LE"
+    if "Operator" in df.columns:
+        df.loc[df["Operator"] == "LE", ["Replacement", "ExtractedFunctionMutation"]] = "N/A"
+
     # Riordina le colonne mettendo 'ContractOriginal' e 'ContractMutated' all'inizio
     cols = ["ContractOriginal", "ContractMutated"] + [col for col in df.columns if col not in ["ContractOriginal", "ContractMutated"]]
     df = df[cols]
 
-    if "Operator" in df.columns:
-        df.loc[df["Operator"] == "LE", ["Replacement", "ExtractedFunctionMutation"]] = "N/A"
-
     # Sovrascrive il file originale con il risultato
     df.to_csv(input_file, index=False)
+
 
 
 def count_analysis_failed_mismatches_by_operator(csv_path):
@@ -547,28 +552,28 @@ def drop_failed_cases(file_path: str) -> None:
 
 
 
-sumo_results = "/Users/matteocicalese/PycharmProjects/SuMo-SOlidity-MUtator/sumo/results/sumo_results.csv"
-sumo_results_with_function_original = "/Users/matteocicalese/PycharmProjects/SuMo-SOlidity-MUtator/sumo/results/sumo_results_with_functions_original.csv"
-sumo_results_with_function_mutation = "/Users/matteocicalese/PycharmProjects/SuMo-SOlidity-MUtator/sumo/results/sumo_results_with_functions_mutation.csv"
+sumo_results = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/sumo_results.csv"
+sumo_results_with_function_original = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/sumo_results_with_functions_original.csv"
+sumo_results_with_function_mutation = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/sumo_results_with_functions_mutation.csv"
 
 
 
 
 
-sumo_results_filtered = "/Users/matteocicalese/PycharmProjects/SuMo-SOlidity-MUtator/sumo/results/sumo_results_filtered.csv"
+sumo_results_filtered = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/sumo_results_filtered.csv"
 
 
 
 
-mutation_folder = "/Users/matteocicalese/PycharmProjects/SuMo-SOlidity-MUtator/sumo/results/mutants"
-json_output_results = "/Users/matteocicalese/PycharmProjects/SuMo-SOlidity-MUtator/sumo/results/results.json"
-json_output_results_filtered = "/Users/matteocicalese/PycharmProjects/SuMo-SOlidity-MUtator/sumo/results/results_filtered.json"
+mutation_folder = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/mutants"
+json_output_results = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/results.json"
+json_output_results_filtered = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/results_filtered.json"
 
 json_folder_original = '/Users/matteocicalese/results/slither-0.10.4/slither_original'
-json_folder_mutated = '/Users/matteocicalese/results/slither-0.10.4/20250506_1751'
-result_partial1 = '/Users/matteocicalese/PycharmProjects/SuMo-SOlidity-MUtator/analysis/result_partial1.csv'
-result_partial2 = '/Users/matteocicalese/PycharmProjects/SuMo-SOlidity-MUtator/analysis/result_partial2.csv'
-result_final = '/Users/matteocicalese/PycharmProjects/SuMo-SOlidity-MUtator/analysis/result_final.csv'
+json_folder_mutated = '/Users/matteocicalese/results/slither-0.10.4/slither_mutated'
+result_partial1 = '/Users/matteocicalese/PycharmProjects/MuSe/analysis/result_partial1.csv'
+result_partial2 = '/Users/matteocicalese/PycharmProjects/MuSe/analysis/result_partial2.csv'
+result_final = '/Users/matteocicalese/PycharmProjects/MuSe/analysis/result_final.csv'
 
 
 #"""

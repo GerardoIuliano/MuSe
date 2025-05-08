@@ -32,7 +32,7 @@ const mutGen = new mutationGenerator.MutationOperators([
   "HLR", "ICM", "ILR", "LSC", "MCR", "MOD", "MOI", "MOC", "MOR", "OLFD",
   "OMD", "ORFD", "PKD", "RSD", "RVS", "SCEC", "SFD", "SFI", "SFR", "SKD",
   "SKI", "SLR", "TOR", "TX", "UORD", "VUR", "VVR", "ROS", "CL", "AV", "UC",
-  "US", "UR", "UR1", "UR2", "UTR", "TD", "RE", "IUO", "USD", "LE"
+  "US", "UR", "UR1", "UR2", "UTR", "TD", "RE", "IUO", "USD", "LE", "UR3"
 ].map(operator => new mutationGenerator[`${operator}Operator`]()));
 
 /**
