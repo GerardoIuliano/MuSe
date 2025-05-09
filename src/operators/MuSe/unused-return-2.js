@@ -68,23 +68,39 @@ UR2Operator.prototype.getMutations = function(file, source, visit) {
                         Array.isArray(node.variables) &&
                         node.variables.length > 0
                     ) {
+                        // Salta se qualunque variabile ha tipo ArrayTypeName (ignorando buchi)
+                        if (node.variables.some(v => v && v.typeName && (v.typeName.type === "ArrayTypeName" || v.typeName.type === "UserDefinedTypeName"))) {
+                            return;
+                        }
+
                         const original = source.slice(start, end);
                         const declarations = [];
 
                         for (const variable of node.variables) {
-                            if (!variable || !variable.typeName || !variable.typeName.name || !variable.name) {
-                                continue; // skip null or incomplete
+                            if (!variable || !variable.typeName || !variable.name) {
+                                continue; // buco nella tupla: lo ignoriamo
                             }
 
-                            const type = variable.typeName.name;
-                            const name = variable.name;
-                            const defaultValue = getDefaultValue(type);
+                            if (variable.typeName.name) {
+                                let type = variable.typeName.name;
 
-                            if (defaultValue === null) {
-                                continue; // skip unsupported types
+                                if (variable.storageLocation) {
+                                    type += ' ' + variable.storageLocation;
+                                }
+
+                                if (variable.typeName.stateMutability) {
+                                    type += ' ' + variable.typeName.stateMutability;
+                                }
+
+                                const name = variable.name;
+                                const defaultValue = getDefaultValue(variable.typeName.name);
+
+                                if (defaultValue === null) {
+                                    continue;
+                                }
+
+                                declarations.push(`${type} ${name} = ${defaultValue};`);
                             }
-
-                            declarations.push(`${type} ${name} = ${defaultValue};`);
                         }
 
                         if (declarations.length > 0) {
@@ -100,5 +116,6 @@ UR2Operator.prototype.getMutations = function(file, source, visit) {
 
     return mutations;
 };
+
 
 module.exports = UR2Operator;

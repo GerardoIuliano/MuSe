@@ -7,6 +7,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Optional, Dict, Any
 import pandas as pd
+from matplotlib.font_manager import json_load
 
 
 def find_block_regex_and_braces(source_code: str, target_start_line: int):
@@ -48,7 +49,7 @@ def find_block_regex_and_braces(source_code: str, target_start_line: int):
 
     return None, "Parentesi graffe non bilanciate."
 
-def process_solidity_csv_regex(input_csv_path, output_csv_path, row_limit=None):
+def extract_function_from_mutations_original_line(input_csv_path, output_csv_path, row_limit=None):
     required_columns = ['File', 'StartLine', 'EndLine']
     output_column = 'ExtractedFunctionOriginal'
 
@@ -90,7 +91,7 @@ def process_solidity_csv_regex(input_csv_path, output_csv_path, row_limit=None):
 
     print(f"Processo completato. Errori riscontrati: {error_count}")
 
-def process_solidity_csv_regex_by_hash(input_csv_path, output_csv_path, contracts_dir, filters: Optional[Dict[str, Any]] = None, row_limit: Optional[int] = None):
+def extract_function_from_mutations_hash_line(input_csv_path, output_csv_path, contracts_dir, filters: Optional[Dict[str, Any]] = None, row_limit: Optional[int] = None):
     required_cols = ['Hash', 'StartLine']
     output_col = 'ExtractedFunctionMutation'
 
@@ -143,110 +144,153 @@ def process_solidity_csv_regex_by_hash(input_csv_path, output_csv_path, contract
 
 
 
+def find_block_with_line_numbers(source_code: str, target_start_line: int):
+    result = find_block_regex_and_braces(source_code, target_start_line)
+    if not result or result[0] is None:
+        return None, None, None, result[1] if result else "Errore sconosciuto."
+
+    extracted_block = result[0]
+    lines = source_code.splitlines()
+    pattern = re.compile(r"^\s*(?:function|modifier|constructor|receive|fallback)\b")
+    candidates = [i for i, l in enumerate(lines) if pattern.search(l)]
+
+    block_start = None
+    for idx in reversed(candidates):
+        if idx + 1 <= target_start_line:
+            block_start = idx
+            break
+
+    if block_start is None:
+        return None, None, None, f"Impossibile associare la riga {target_start_line} a un blocco."
+
+    brace_start = None
+    for i in range(block_start, len(lines)):
+        if '{' in lines[i].split('//')[0]:
+            brace_start = i
+            break
+    if brace_start is None:
+        return None, None, None, f"Nessuna '{{' trovata dopo la riga {block_start + 1}."
+
+    brace_level = 0
+    for i in range(brace_start, len(lines)):
+        for char in lines[i].split('//')[0]:
+            if char == '{': brace_level += 1
+            elif char == '}': brace_level -= 1
+        if brace_level == 0:
+            block_end = i
+            extracted_block = "\n".join(lines[block_start:block_end + 1])
+            return extracted_block, block_start + 1, block_end + 1, "Success"
+
+    return None, None, None, "Parentesi graffe non bilanciate."
+
+def extract_function_from_mutations_original_block(input_csv_path, output_csv_path, row_limit=None):
+    output_column = 'ExtractedFunctionOriginal'
+
+    with open(input_csv_path, 'r', encoding='utf-8') as infile:
+        reader = csv.DictReader(infile)
+        rows = list(reader)[:row_limit] if row_limit else list(reader)
+
+    fieldnames = reader.fieldnames or []
+    for col in [output_column, 'StartLineMutation', 'EndLineMutation']:
+        if col not in fieldnames:
+            fieldnames.append(col)
+
+    os.makedirs(os.path.dirname(output_csv_path) or '.', exist_ok=True)
+    error_count = 0
+
+    with open(output_csv_path, 'w', newline='', encoding='utf-8') as outfile:
+        writer = csv.DictWriter(
+            outfile,
+            fieldnames=fieldnames,
+            lineterminator='\n',
+            quoting=csv.QUOTE_ALL,
+            escapechar='\\',
+            doublequote=True
+        )
+        writer.writeheader()
+        for idx, row in enumerate(rows):
+            try:
+                path, start_line = row['File'].strip(), int(row['StartLine'].strip())
+                if not os.path.isfile(path):
+                    raise FileNotFoundError(f"File non trovato: {path}")
+                with open(path, 'r', encoding='utf-8', errors='replace') as f:
+                    code = f.read()
+
+                extracted, new_start, new_end, status = find_block_with_line_numbers(code, start_line)
+                row[output_column] = extracted if status == "Success" else status
+                if status == "Success":
+                    row['StartLineMutation'] = str(new_start)
+                    row['EndLineMutation'] = str(new_end)
+                else:
+                    error_count += 1
+            except Exception as e:
+                row[output_column] = f"Errore Riga {idx+2}: {type(e).__name__}: {e}"
+                error_count += 1
+            writer.writerow(row)
+
+    print(f"Processo completato. Errori riscontrati: {error_count}")
 
 
-def convert_csv_to_json(csv_file_path: str, json_file_path: str) -> None:
-    """
-    Converts a CSV file to a JSON file where each row is a key-value object.
+def extract_function_from_mutations_hash_block(input_csv_path, output_csv_path, contracts_dir, filters: Optional[Dict[str, Any]] = None, row_limit: Optional[int] = None):
+    required_cols = ['Hash', 'StartLine']
+    output_col = 'ExtractedFunctionMutation'
 
-    Parameters:
-    - csv_file_path (str): Path to the input CSV file.
-    - json_file_path (str): Path where the output JSON file will be saved.
-    """
-    try:
-        # Load CSV
-        df = pd.read_csv(csv_file_path)
+    with open(input_csv_path, 'r', encoding='utf-8') as infile:
+        reader = csv.DictReader(infile)
+        rows = list(reader)
+        if filters:
+            rows = [r for r in rows if all(
+                r.get(k) in v if isinstance(v, (list, set, tuple)) else r.get(k) == v for k, v in filters.items()
+            )]
+        if row_limit:
+            rows = rows[:row_limit]
 
-        # Convert to list of dictionaries
-        data_as_json = df.to_dict(orient="records")
+    fieldnames = reader.fieldnames or []
+    if output_col not in fieldnames:
+        fieldnames.append(output_col)
+    if 'StartLineMutation' not in fieldnames:
+        fieldnames.append('StartLineMutation')
+    if 'EndLineMutation' not in fieldnames:
+        fieldnames.append('EndLineMutation')
 
-        # Write to JSON file
-        with open(json_file_path, "w", encoding="utf-8") as json_file:
-            json.dump(data_as_json, json_file, indent=4, ensure_ascii=False)
+    sol_files = [os.path.join(dp, f) for dp, _, files in os.walk(contracts_dir) for f in files if f.endswith('.sol')]
+    os.makedirs(os.path.dirname(output_csv_path) or '.', exist_ok=True)
+    error_count = 0
 
-        print(f"Conversion successful. JSON saved to: {json_file_path}")
+    with open(output_csv_path, 'w', newline='', encoding='utf-8') as outfile:
+        writer = csv.DictWriter(
+            outfile,
+            fieldnames=fieldnames,
+            lineterminator='\n',
+            quoting=csv.QUOTE_ALL,
+            escapechar='\\',
+            doublequote=True
+        )
+        writer.writeheader()
+        for idx, row in enumerate(rows):
+            try:
+                h, sl = row['Hash'].strip(), int(row['StartLine'].strip())
+                file_path = next((p for p in sol_files if h in os.path.basename(p)), None)
+                if not file_path:
+                    raise FileNotFoundError(f"Hash {h} non trovato in nomi file.")
+                with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+                    code = f.read()
 
-    except Exception as e:
-        print(f"An error occurred: {e}")
+                extracted, start_line, end_line, status = find_block_with_line_numbers(code, sl)
+                row[output_col] = extracted if status.startswith("Success") else status
+                if status.startswith("Success"):
+                    row['StartLineMutation'] = str(start_line)
+                    row['EndLineMutation'] = str(end_line)
+                else:
+                    error_count += 1
+            except Exception as e:
+                row[output_col] = f"Errore Riga {idx+2}: {type(e).__name__}: {e}"
+                error_count += 1
+            writer.writerow(row)
+
+    print(f"Processo completato. Errori riscontrati: {error_count}")
 
 
-def le_operator_fix(csv_path):
-    """
-    Reads a CSV file, looks for rows where the 'Operator' column has the value 'LE',
-    and sets the value of the 'ExtractedFunctionMutation' column to 'N/A' for those rows.
-
-    !! WARNING !! This function modifies the input CSV file directly (in-place).
-    Make a backup of your file before running this if the data is critical.
-
-    Args:
-        csv_path (str): The path to the CSV file to read and modify.
-
-    Returns:
-        bool: True if the file was successfully modified, False otherwise.
-
-    Raises:
-        FileNotFoundError: If the input file is not found (handled internally, returns False).
-        KeyError: If the 'Operator' or 'ExtractedFunctionMutation' columns
-                  are not present in the CSV file (handled internally, returns False).
-        Exception: For other unexpected errors during reading/writing (handled internally).
-    """
-    modified_data = []
-    column_names = []
-
-    operator_column = "Operator"
-    target_column = "ExtractedFunctionMutation"
-    trigger_value = "LE"
-    new_value = "N/A"
-
-    try:
-        # --- Step 1: Read the entire file into memory and perform modifications ---
-        print(f"Reading data from: {csv_path}...")
-        if not os.path.exists(csv_path):
-             raise FileNotFoundError(f"Error: Input file not found at '{csv_path}'")
-
-        with open(csv_path, mode='r', newline='', encoding='utf-8') as csv_file:
-            reader = csv.DictReader(csv_file)
-            column_names = reader.fieldnames
-            if not column_names:
-                 print(f"Error: CSV file '{csv_path}' appears empty or lacks a header.")
-                 return False # Indicate failure
-            if operator_column not in column_names:
-                raise KeyError(f"Error: Column '{operator_column}' not found in the CSV file.")
-            if target_column not in column_names:
-                 raise KeyError(f"Error: Column '{target_column}' not found in the CSV file.")
-
-            # Store all rows (modified or not)
-            for row in reader:
-                if row.get(operator_column, "").strip() == trigger_value:
-                    row[target_column] = new_value
-                modified_data.append(row)
-        print("Data read and modifications prepared.")
-
-        # --- Step 2: Overwrite the original file with the modified data ---
-        print(f"Overwriting original file: {csv_path}...")
-        with open(csv_path, mode='w', newline='', encoding='utf-8') as output_file:
-            # Need column_names obtained during reading
-            if not column_names:
-                 print("Error: Cannot determine columns for writing.")
-                 return False # Should not happen if reading was successful, but safe check
-
-            writer = csv.DictWriter(output_file, fieldnames=column_names)
-            writer.writeheader()
-            writer.writerows(modified_data)
-
-        print(f"File '{csv_path}' modified successfully in place.")
-        return True # Indicate success
-
-    except FileNotFoundError as e:
-        print(e)
-        return False
-    except KeyError as e:
-        print(e)
-        return False
-    except Exception as e:
-        print(f"Unexpected error during processing or writing file '{csv_path}': {e}")
-        # Consider adding more specific error handling if needed (e.g., permissions)
-        return False
 
 
 def filter_csv_per_operator(percorso_csv_input, operatore, percorso_csv_output):
@@ -539,12 +583,27 @@ def drop_failed_cases(file_path: str) -> None:
     df = pd.read_csv(file_path)
 
     # Applica il filtro
-    filtered_df = df[~((df['FindingsMutated'] == 'Analysis Failed') &
-                       (df['FindingsOriginal'] != 'Analysis Failed'))]
+    filtered_df = df[~((df['FindingsMutated'] == 'Analysis failed') &
+                       (df['FindingsOriginal'] != 'Analysis failed'))]
 
     # Sovrascrive il file con i dati filtrati
     filtered_df.to_csv(file_path, index=False)
     print(f"File sovrascritto con i dati filtrati: {file_path}")
+
+
+def csv_to_jsonl(csv_file_path, jsonl_file_path):
+    """
+    Converte un file CSV in formato JSONL.
+
+    Args:
+        csv_file_path (str): Percorso del file CSV di input.
+        jsonl_file_path (str): Percorso del file JSONL di output.
+    """
+    with open(csv_file_path, mode='r', encoding='utf-8') as csv_file, \
+            open(jsonl_file_path, mode='w', encoding='utf-8') as jsonl_file:
+        reader = csv.DictReader(csv_file)
+        for row in reader:
+            jsonl_file.write(json.dumps(row) + '\n')
 
 
 
@@ -566,20 +625,22 @@ sumo_results_filtered = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results
 
 
 mutation_folder = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/mutants"
-json_output_results = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/results.json"
-json_output_results_filtered = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/results_filtered.json"
+jsonl_output_results = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/results.jsonl"
+json_output_results_filtered = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/results_filtered.jsonl"
 
-json_folder_original = '/Users/matteocicalese/results/slither-0.10.4/slither_original'
-json_folder_mutated = '/Users/matteocicalese/results/slither-0.10.4/slither_mutated'
+json_folder_original = '/Users/matteocicalese/results/slither-0.10.4/20250509_1441'
+json_folder_mutated = '/Users/matteocicalese/results/slither-0.10.4/20250509_1551'
 result_partial1 = '/Users/matteocicalese/PycharmProjects/MuSe/analysis/result_partial1.csv'
 result_partial2 = '/Users/matteocicalese/PycharmProjects/MuSe/analysis/result_partial2.csv'
 result_final = '/Users/matteocicalese/PycharmProjects/MuSe/analysis/result_final.csv'
 
 
 #"""
-process_solidity_csv_regex(sumo_results, sumo_results_with_function_original)
-process_solidity_csv_regex_by_hash(sumo_results_with_function_original, sumo_results_with_function_mutation, mutation_folder)
-#le_operator_fix(sumo_results_with_function_mutation)
+extract_function_from_mutations_original_line(sumo_results, sumo_results_with_function_original)
+extract_function_from_mutations_hash_line(sumo_results_with_function_original, sumo_results_with_function_mutation, mutation_folder)
+
+# extract_function_from_mutations_original_block(sumo_results, sumo_results_with_function_original)
+# extract_function_from_mutations_hash_block(sumo_results_with_function_original, sumo_results_with_function_mutation, mutation_folder)
 
 
 extract_findings_original_ranged(json_folder_original, sumo_results_with_function_mutation, result_partial1)
@@ -590,17 +651,15 @@ count_analysis_failed_mismatches_by_operator(result_final)
 
 csv_beautifier(result_final)
 
-drop_failed_cases(result_final)
+#drop_failed_cases(result_final)
 
 
-convert_csv_to_json(result_final, json_output_results)
-#"""
-
-
-
-
+#csv_to_jsonl(result_final, jsonl_output_results)
 
 # filter_csv_per_operator(sumo_results_final, "UTR", sumo_results_filtered)
-# convert_csv_to_json(sumo_results_filtered, json_results_filtered)
+
+
+
+
 
 

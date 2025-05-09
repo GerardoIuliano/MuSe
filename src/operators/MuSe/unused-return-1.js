@@ -35,8 +35,7 @@ UR1Operator.prototype.getMutations = function(file, source, visit) {
         VariableDeclaration: (node) => {
             if (node.name && node.typeName) {
                 const varName = node.name;
-                const typeName = source.slice(node.typeName.range[0], node.typeName.range[1]+1);
-                variableTypes[varName] = typeName;
+                variableTypes[varName] = source.slice(node.typeName.range[0], node.typeName.range[1] + 1);
             }
         }
     });

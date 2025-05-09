@@ -45,45 +45,10 @@ function extractText(node, source) {
             return `${extractText(node.expression, source)}(${args})`;
         default:
             if (node.range && node.range[0] !== node.range[1]) {
-                return source.slice(node.range[0], node.range[1]);
+                return source.slice(node.range[0], node.range[1] + 1);
             }
             return "<?>";
     }
-}
-
-function printLeftExpression(node) {
-    if (!node) return "<?>";
-
-    switch (node.type) {
-        case 'Identifier':
-            return node.name;
-        case 'IndexAccess':
-            return `${printLeftExpression(node.base)}[${printLeftExpression(node.index)}]`;
-        case 'MemberAccess':
-            return `${printLeftExpression(node.expression)}.${node.memberName}`;
-        default:
-            return "<?>";
-    }
-}
-
-function fixParentheses(str) {
-    let result = '';
-    let balance = 0;
-    for (const char of str) {
-        if (char === '(') balance++;
-        else if (char === ')') {
-            if (balance > 0) balance--;
-            else continue;
-        }
-        result += char;
-    }
-    result += ')'.repeat(balance);
-    return result;
-}
-
-function maybeStripFinalSemicolon(str, isOldVersion) {
-    if (!isOldVersion) return str;
-    return str.replace(/;\s*$/, '');
 }
 
 IUOOperator.prototype.getMutations = function (file, source, visit) {
@@ -116,10 +81,7 @@ IUOOperator.prototype.getMutations = function (file, source, visit) {
             const left = node.expression.expression;
             const right = args[0];
 
-            const leftStr = (left.type === 'FunctionCall' && left.expression && typeof left.expression.name === 'string')
-                ? `${left.expression.name}(${(left.arguments || []).map(arg => transformSafeMath(arg)).join(', ')})`
-                : transformSafeMath(left);
-
+            const leftStr = transformSafeMath(left);
             const rightStr = transformSafeMath(right);
 
             return `(${leftStr} ${operator} ${rightStr})`;
@@ -150,7 +112,6 @@ IUOOperator.prototype.getMutations = function (file, source, visit) {
 
             if (type === 'ReturnStatement') expression = node.expression;
             else if (type === 'ExpressionStatement') expression = node.expression;
-            else if (type === 'Assignment') expression = node.right;
             else if (type === 'VariableDeclarationStatement') expression = node.initialValue;
 
             if (!expression || !containsSafeMath(expression)) return;
@@ -160,52 +121,48 @@ IUOOperator.prototype.getMutations = function (file, source, visit) {
                 expression.expression &&
                 (
                     expression.expression.name === 'require' ||
-                    expression.expression.name === 'approve'
+                    expression.expression.name === 'assert'
                 )
             ) {
                 return;
             }
 
             const original = source.slice(node.range[0], node.range[1]);
-            let mutatedInner = transformSafeMath(expression);
-            mutatedInner = fixParentheses(mutatedInner);
+            const mutatedInner = transformSafeMath(expression);
 
             let mutated;
 
             switch (type) {
                 case 'ReturnStatement':
-                    mutated = maybeStripFinalSemicolon(`return ${mutatedInner};`, isOldVersion);
+                    mutated = `return ${mutatedInner}`;
                     break;
                 case 'ExpressionStatement':
-                    mutated = maybeStripFinalSemicolon(`${mutatedInner};`, isOldVersion);
+                    mutated = `${mutatedInner}`;
                     break;
-                case 'Assignment': {
-                    const leftText = printLeftExpression(node.left);
-                    mutated = maybeStripFinalSemicolon(`${leftText} = ${mutatedInner}`, isOldVersion);
-                    break;
-                }
                 case 'VariableDeclarationStatement':
-                    if (node.declarations && node.declarations.length > 0) {
-                        const decl = node.declarations[0];
-                        const name = decl.name || decl.id || 'var';
+                    if (node.variables && node.variables.length > 0) {
+                        const decl = node.variables[0];
+                        const name = decl.name;
                         const typeName = extractText(decl.typeName, source);
-                        mutated = maybeStripFinalSemicolon(`${typeName} ${name} = ${mutatedInner}`, isOldVersion);
+                        mutated = `${typeName} ${name} = ${mutatedInner}`;
                     } else return;
                     break;
                 default:
                     return;
             }
 
-            mutations.push(new Mutation(
-                file,
-                node.range[0],
-                node.range[1],
-                node.loc.start.line,
-                node.loc.end.line,
-                original,
-                mutated,
-                "IUO"
-            ));
+            if (original.trim() !== mutated.trim()) {
+                mutations.push(new Mutation(
+                    file,
+                    node.range[0],
+                    node.range[1],
+                    node.loc.start.line,
+                    node.loc.end.line,
+                    original,
+                    mutated,
+                    "IUO1"
+                ));
+            }
         }
 
         visit({
@@ -217,9 +174,6 @@ IUOOperator.prototype.getMutations = function (file, source, visit) {
             },
             VariableDeclarationStatement: function (node) {
                 mutateSafeMathExpression.call(this, node, 'VariableDeclarationStatement');
-            },
-            Assignment: function (node) {
-                mutateSafeMathExpression.call(this, node, 'Assignment');
             }
         });
     }
@@ -248,7 +202,6 @@ IUOOperator.prototype.getMutations = function (file, source, visit) {
             for (const field of fields) {
                 if (
                     node[field] &&
-                    typeof node[field] === 'object' &&
                     nodeContainsArithmetic(node[field])
                 ) return true;
             }
@@ -288,7 +241,7 @@ IUOOperator.prototype.getMutations = function (file, source, visit) {
                     node.loc.end.line,
                     fullText,
                     cleaned,
-                    this.ID
+                    "IUO2"
                 ));
             }
         });
