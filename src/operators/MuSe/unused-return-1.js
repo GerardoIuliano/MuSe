@@ -28,17 +28,32 @@ function getDefaultValue(typeName) {
 
 UR1Operator.prototype.getMutations = function(file, source, visit) {
     const mutations = [];
-    const variableTypes = {};
+    const variableDeclarations = [];
 
-    // Prima passata: raccogli dichiarazioni variabili
+    // Prima passata: raccogli dichiarazioni variabili con riga
     visit({
         VariableDeclaration: (node) => {
             if (node.name && node.typeName) {
-                const varName = node.name;
-                variableTypes[varName] = source.slice(node.typeName.range[0], node.typeName.range[1] + 1);
+                variableDeclarations.push({
+                    name: node.name,
+                    type: source.slice(node.typeName.range[0], node.typeName.range[1] + 1).trim(),
+                    line: node.loc.start.line
+                });
             }
         }
     });
+
+    function findClosestTypeBeforeLine(varName, currentLine) {
+        let closestDecl = null;
+        for (const decl of variableDeclarations) {
+            if (decl.name === varName && decl.line < currentLine) {
+                if (!closestDecl || decl.line > closestDecl.line) {
+                    closestDecl = decl;
+                }
+            }
+        }
+        return closestDecl ? closestDecl.type : null;
+    }
 
     // Seconda passata: mutazioni
     visit({
@@ -55,16 +70,18 @@ UR1Operator.prototype.getMutations = function(file, source, visit) {
                 const start = node.range[0];
                 const end = node.range[1];
                 const original = source.slice(start, end);
-                const rhs = source.slice(expr.right.range[0], expr.right.range[1]+1);
+                const rhs = source.slice(expr.right.range[0], expr.right.range[1] + 1);
+                const currentLine = node.loc.start.line;
 
                 if (expr.left.type === 'Identifier') {
                     const varName = expr.left.name;
-                    const typeName = variableTypes[varName];
+                    const typeName = findClosestTypeBeforeLine(varName, currentLine);
                     if (!typeName) return;
-                    const defaultValue = getDefaultValue(typeName.trim());
+
+                    const defaultValue = getDefaultValue(typeName);
                     if (defaultValue === null) return;
 
-                    const lhs = source.slice(expr.left.range[0], expr.left.range[1]+1);
+                    const lhs = source.slice(expr.left.range[0], expr.left.range[1] + 1);
                     const mutatedString = `${lhs} = ${defaultValue}; ${rhs}`;
                     mutations.push(new Mutation(file, start, end, node.loc.start.line, node.loc.end.line, original, mutatedString, this.ID));
 
@@ -76,10 +93,10 @@ UR1Operator.prototype.getMutations = function(file, source, visit) {
                         if (!el || el.type !== 'Identifier') continue;
 
                         const varName = el.name;
-                        const typeName = variableTypes[varName];
+                        const typeName = findClosestTypeBeforeLine(varName, currentLine);
                         if (!typeName) return;
 
-                        const defaultValue = getDefaultValue(typeName.trim());
+                        const defaultValue = getDefaultValue(typeName);
                         if (defaultValue === null) return;
 
                         allDefaults.push(`${varName} = ${defaultValue}`);

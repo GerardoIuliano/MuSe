@@ -191,7 +191,7 @@ def extract_function_from_mutations_original_block(input_csv_path, output_csv_pa
         rows = list(reader)[:row_limit] if row_limit else list(reader)
 
     fieldnames = reader.fieldnames or []
-    for col in [output_column, 'StartLineMutation', 'EndLineMutation']:
+    for col in [output_column, 'StartLineFunction', 'EndLineFunction']:
         if col not in fieldnames:
             fieldnames.append(col)
 
@@ -219,8 +219,8 @@ def extract_function_from_mutations_original_block(input_csv_path, output_csv_pa
                 extracted, new_start, new_end, status = find_block_with_line_numbers(code, start_line)
                 row[output_column] = extracted if status == "Success" else status
                 if status == "Success":
-                    row['StartLineMutation'] = str(new_start)
-                    row['EndLineMutation'] = str(new_end)
+                    row['StartLineFunction'] = str(new_start)
+                    row['EndLineFunction'] = str(new_end)
                 else:
                     error_count += 1
             except Exception as e:
@@ -248,10 +248,10 @@ def extract_function_from_mutations_hash_block(input_csv_path, output_csv_path, 
     fieldnames = reader.fieldnames or []
     if output_col not in fieldnames:
         fieldnames.append(output_col)
-    if 'StartLineMutation' not in fieldnames:
-        fieldnames.append('StartLineMutation')
-    if 'EndLineMutation' not in fieldnames:
-        fieldnames.append('EndLineMutation')
+    if 'StartLineFunction' not in fieldnames:
+        fieldnames.append('StartLineFunction')
+    if 'EndLineFunction' not in fieldnames:
+        fieldnames.append('EndLineFunction')
 
     sol_files = [os.path.join(dp, f) for dp, _, files in os.walk(contracts_dir) for f in files if f.endswith('.sol')]
     os.makedirs(os.path.dirname(output_csv_path) or '.', exist_ok=True)
@@ -279,8 +279,8 @@ def extract_function_from_mutations_hash_block(input_csv_path, output_csv_path, 
                 extracted, start_line, end_line, status = find_block_with_line_numbers(code, sl)
                 row[output_col] = extracted if status.startswith("Success") else status
                 if status.startswith("Success"):
-                    row['StartLineMutation'] = str(start_line)
-                    row['EndLineMutation'] = str(end_line)
+                    row['StartLineFunction'] = str(start_line)
+                    row['EndLineFunction'] = str(end_line)
                 else:
                     error_count += 1
             except Exception as e:
@@ -322,15 +322,20 @@ def filter_csv_per_operator(percorso_csv_input, operatore, percorso_csv_output):
         print(f"Errore durante l'elaborazione del file: {e}")
 
 
-def extract_findings_original_ranged(json_dir_path, input_csv_path, output_csv_path):
+def extract_findings_original_ranged(json_dir_path, input_csv_path, output_csv_path, use_function_lines=False):
     base_path = Path(json_dir_path)
     input_data = pd.read_csv(input_csv_path)
     findings_list = []
 
     for _, row in input_data.iterrows():
         file_path = row["File"]
-        start_line = int(row["StartLine"])
-        end_line = int(row["EndLine"])
+
+        if use_function_lines:
+            start_line = int(row["StartLineFunction"])
+            end_line = int(row["EndLineFunction"])
+        else:
+            start_line = int(row["StartLine"])
+            end_line = int(row["EndLine"])
 
         file_name = os.path.basename(file_path)
         folder_name = file_name
@@ -387,7 +392,7 @@ def extract_findings_original_ranged(json_dir_path, input_csv_path, output_csv_p
     print(f"\n✅ CSV aggiornato generato con successo: {output_csv_path}")
 
 
-def extract_findings_mutated_ranged(json_dir_path, input_csv_path, output_csv_path):
+def extract_findings_mutated_ranged(json_dir_path, input_csv_path, output_csv_path, use_function_lines=False):
     base_path = Path(json_dir_path)
     input_data = pd.read_csv(input_csv_path)
     findings_list = []
@@ -395,8 +400,13 @@ def extract_findings_mutated_ranged(json_dir_path, input_csv_path, output_csv_pa
     for _, row in input_data.iterrows():
         file_path = row["File"]
         hash_value = row["Hash"]
-        start_line = int(row["StartLine"])
-        end_line = int(row["EndLine"])
+
+        if use_function_lines:
+            start_line = int(row["StartLineFunction"])
+            end_line = int(row["EndLineFunction"])
+        else:
+            start_line = int(row["StartLine"])
+            end_line = int(row["EndLine"])
 
         file_name = os.path.basename(file_path)
         folder_name = f"{file_name}-{hash_value}.sol"
@@ -499,54 +509,53 @@ def process_findings_diff_single_csv(input_csv, output_csv):
 
     df["differences"] = diffs
     df.to_csv(output_csv, index=False)
-    print(f"✅ Output saved with 'differences' column to: {output_csv}")
+    # print(f"✅ Output saved with 'differences' column to: {output_csv}")
 
 
-import pandas as pd
-import os
 
 def csv_beautifier(input_file: str):
     # Carica il file CSV
     df = pd.read_csv(input_file)
 
-    # Rimuove le colonne specificate
-    columns_to_drop = ["start", "end", "StartLine", "EndLine", "status", "time(ms)"]
-    df = df.drop(columns=[col for col in columns_to_drop if col in df.columns])
+    # Rimuove colonne inutili se presenti
+    df = df.drop(columns=[col for col in ["start", "end", "status", "time(ms)"] if col in df.columns])
 
-    # Estrai l'ultima parte del path per ContractOriginal
+    # Aggiunge ContractOriginal e ContractMutated
     df["ContractOriginal"] = df["file"].apply(lambda x: os.path.basename(x))
-
-    # Crea ContractMutated mantenendo l'estensione originale e aggiungendo l'hash
     df["ContractMutated"] = df.apply(lambda row: f"{os.path.basename(row['file'])}-{row['hash']}.sol", axis=1)
 
-    # Rimuove le colonne originali 'file' e 'hash'
+    # Rimuove colonne non più necessarie
     df = df.drop(columns=["file", "hash"])
 
-    # Rinomina colonne specifiche
-    rename_map = {
+    # Rinomina colonne per consistenza
+    df = df.rename(columns={
+        "operator": "Operator",
+        "original": "Original",
+        "replacement": "Replacement",
+        "startline": "StartLineMutation",
+        "endline": "EndLineMutation",
+        "extractedfunctionoriginal": "FunctionOriginal",
+        "extractedfunctionmutation": "FunctionMutation",
+        "startlinefunction": "StartLineFunction",
+        "endlinefunction": "EndLineFunction",
         "findings_original": "FindingsOriginal",
         "findings_mutated": "FindingsMutated",
-        "extractedfunctionmutation": "ExtractedFunctionMutation",
-        "extractedfunctionoriginal": "ExtractedFunctionOriginal",
-        "startline": "StartLine",
-        "endline": "EndLine"
-    }
-    df = df.rename(columns=rename_map)
+        "differences": "Differences"
+    })
 
-    # Capitalizza l'iniziale delle altre colonne non già modificate
-    df.columns = [col if col in ["ContractOriginal", "ContractMutated"] or col in rename_map.values()
-                  else col[0].upper() + col[1:] if col and not col[0].isupper()
-                  else col for col in df.columns]
-
-    # Imposta "N/A" per Replacement e ExtractedFunctionMutation se Operator è "LE"
+    # Imposta 'N/A' per Replacement e ExtractedFunctionMutation se Operator è 'LE'
     if "Operator" in df.columns:
         df.loc[df["Operator"] == "LE", ["Replacement", "ExtractedFunctionMutation"]] = "N/A"
 
-    # Riordina le colonne mettendo 'ContractOriginal' e 'ContractMutated' all'inizio
-    cols = ["ContractOriginal", "ContractMutated"] + [col for col in df.columns if col not in ["ContractOriginal", "ContractMutated"]]
-    df = df[cols]
+    # Ordine finale delle colonne
+    final_columns = [
+        "ContractOriginal", "ContractMutated", "Operator", "Original", "Replacement",
+        "StartLineMutation", "EndLineMutation", "FunctionOriginal", "FunctionMutation",
+        "StartLineFunction", "EndLineFunction", "FindingsOriginal", "FindingsMutated", "Differences"
+    ]
+    df = df[[col for col in final_columns if col in df.columns]]
 
-    # Sovrascrive il file originale con il risultato
+    # Salva il file sovrascrivendo quello originale
     df.to_csv(input_file, index=False)
 
 
@@ -567,8 +576,10 @@ def count_analysis_failed_mismatches_by_operator(csv_path):
     else:
         print(f"⚠️ Trovati {len(mismatches)} mismatch in cui solo 'findings_mutated' è 'Analysis failed'.")
         counts = mismatches["operator"].value_counts()
+
         print("\n🔢 Mismatch per operatore:")
-        print(counts)
+        for operator, count in counts.items():
+            print(f"  {operator}: {count}")
 
 
 def drop_failed_cases(file_path: str) -> None:
@@ -588,7 +599,57 @@ def drop_failed_cases(file_path: str) -> None:
 
     # Sovrascrive il file con i dati filtrati
     filtered_df.to_csv(file_path, index=False)
-    print(f"File sovrascritto con i dati filtrati: {file_path}")
+    # print(f"File sovrascritto con i dati filtrati: {file_path}")
+
+
+def count_clean_functions(csv_path):
+    """
+    Conta e stampa quante volte il valore '{}' appare nella colonna 'FindingsOriginal' di un file CSV,
+    e stampa anche il numero di occorrenze per ciascun valore unico della colonna 'Operator'.
+
+    Args:
+        csv_path (str): Percorso del file CSV.
+    """
+    try:
+        df = pd.read_csv(csv_path)
+
+        if "FindingsOriginal" not in df.columns:
+            raise ValueError("La colonna 'FindingsOriginal' non è presente nel file CSV.")
+        if "Operator" not in df.columns:
+            raise ValueError("La colonna 'Operator' non è presente nel file CSV.")
+
+        filtered_df = df[df["FindingsOriginal"] == "{}"]
+        total_count = len(filtered_df)
+        print(f"\nTotale funzioni pulite: {total_count}")
+
+        operator_counts = filtered_df["Operator"].value_counts()
+
+        print("Conteggio per mutatore:")
+        for operator, count in operator_counts.items():
+            print(f" {operator}: {count}")
+
+    except Exception as e:
+        print(f"Errore durante la lettura del file: {e}")
+
+
+def filter_by_clean_functions(input_file, output_file):
+    """
+    Filtra le righe di un CSV in cui la colonna 'FindingsOriginal' ha valore '{}'.
+
+    Args:
+        input_file (str): Percorso del file CSV di input.
+        output_file (str): Percorso dove salvare il file CSV filtrato.
+    """
+    with open(input_file, mode='r', newline='', encoding='utf-8') as infile, \
+            open(output_file, mode='w', newline='', encoding='utf-8') as outfile:
+
+        reader = csv.DictReader(infile)
+        writer = csv.DictWriter(outfile, fieldnames=reader.fieldnames)
+
+        writer.writeheader()
+        for row in reader:
+            if row.get("FindingsOriginal") == "{}":
+                writer.writerow(row)
 
 
 def csv_to_jsonl(csv_file_path, jsonl_file_path):
@@ -625,36 +686,43 @@ sumo_results_filtered = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results
 
 
 mutation_folder = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/mutants"
-jsonl_output_results = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/results.jsonl"
-json_output_results_filtered = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/results_filtered.jsonl"
+jsonl_output_results = "/Users/matteocicalese/PycharmProjects/MuSe/analysis/results.jsonl"
+json_output_results_filtered = "/Users/matteocicalese/PycharmProjects/MuSe/analysis/results_filtered.jsonl"
 
-json_folder_original = '/Users/matteocicalese/results/slither-0.10.4/20250509_1441'
-json_folder_mutated = '/Users/matteocicalese/results/slither-0.10.4/20250509_1551'
+json_folder_original = '/Users/matteocicalese/results/slither-0.10.4/20250510_1239'
+json_folder_mutated = '/Users/matteocicalese/results/slither-0.10.4/20250510_1135'
+
 result_partial1 = '/Users/matteocicalese/PycharmProjects/MuSe/analysis/result_partial1.csv'
 result_partial2 = '/Users/matteocicalese/PycharmProjects/MuSe/analysis/result_partial2.csv'
 result_final = '/Users/matteocicalese/PycharmProjects/MuSe/analysis/result_final.csv'
+result_final_filtered = '/Users/matteocicalese/PycharmProjects/MuSe/analysis/result_final_filtered.csv'
 
 
-#"""
-extract_function_from_mutations_original_line(sumo_results, sumo_results_with_function_original)
-extract_function_from_mutations_hash_line(sumo_results_with_function_original, sumo_results_with_function_mutation, mutation_folder)
-
-# extract_function_from_mutations_original_block(sumo_results, sumo_results_with_function_original)
-# extract_function_from_mutations_hash_block(sumo_results_with_function_original, sumo_results_with_function_mutation, mutation_folder)
 
 
-extract_findings_original_ranged(json_folder_original, sumo_results_with_function_mutation, result_partial1)
-extract_findings_mutated_ranged(json_folder_mutated, result_partial1, result_partial2)
+# extract_function_from_mutations_original_line(sumo_results, sumo_results_with_function_original)
+# extract_function_from_mutations_hash_line(sumo_results_with_function_original, sumo_results_with_function_mutation, mutation_folder)
+
+extract_function_from_mutations_original_block(sumo_results, sumo_results_with_function_original)
+extract_function_from_mutations_hash_block(sumo_results_with_function_original, sumo_results_with_function_mutation, mutation_folder)
+
+
+extract_findings_original_ranged(json_folder_original, sumo_results_with_function_mutation, result_partial1, use_function_lines=True)
+extract_findings_mutated_ranged(json_folder_mutated, result_partial1, result_partial2, use_function_lines=True)
 process_findings_diff_single_csv(result_partial2, result_final)
+
 
 count_analysis_failed_mismatches_by_operator(result_final)
 
 csv_beautifier(result_final)
 
-#drop_failed_cases(result_final)
+drop_failed_cases(result_final)
 
+count_clean_functions(result_final)
 
-#csv_to_jsonl(result_final, jsonl_output_results)
+filter_by_clean_functions(result_final, result_final_filtered)
+
+csv_to_jsonl(result_final_filtered, jsonl_output_results)
 
 # filter_csv_per_operator(sumo_results_final, "UTR", sumo_results_filtered)
 

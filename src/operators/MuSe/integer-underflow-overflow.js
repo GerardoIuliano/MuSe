@@ -24,6 +24,12 @@ function isContractVersionEligible(source) {
     return false;
 }
 
+function stripComments(source) {
+    return source
+        .replace(/\/\/.*$/gm, '')
+        .replace(/\/\*[\s\S]*?\*\//g, '');
+}
+
 function extractText(node, source) {
     if (!node) return "<?>";
 
@@ -54,6 +60,8 @@ function extractText(node, source) {
 IUOOperator.prototype.getMutations = function (file, source, visit) {
     const mutations = [];
     const isOldVersion = isContractVersionEligible(source);
+    const cleanSource = stripComments(source);
+    const hasSafeMath = cleanSource.includes("SafeMath");
 
     const safeMathMethods = {
         add: '+',
@@ -105,6 +113,38 @@ IUOOperator.prototype.getMutations = function (file, source, visit) {
     }
 
     if (isOldVersion) {
+        if (!hasSafeMath) return [];
+
+        const variableDeclarations = [];
+
+        visit({
+            VariableDeclaration: (node) => {
+                if (node.name && node.typeName) {
+                    variableDeclarations.push({
+                        name: node.name,
+                        type: extractText(node.typeName, source),
+                        line: node.loc.start.line
+                    });
+                }
+            }
+        });
+
+        function findClosestTypeBeforeLine(varName, currentLine) {
+            let closestDecl = null;
+            for (const decl of variableDeclarations) {
+                if (decl.name === varName && decl.line < currentLine) {
+                    if (!closestDecl || decl.line > closestDecl.line) {
+                        closestDecl = decl;
+                    }
+                }
+            }
+            return closestDecl ? closestDecl.type : null;
+        }
+
+        function isIntegerType(typeName) {
+            return /^u?int(\d+)?$/.test(typeName.trim());
+        }
+
         function mutateSafeMathExpression(node, type) {
             if (!node || !node.range || !node.loc) return;
 
@@ -123,15 +163,26 @@ IUOOperator.prototype.getMutations = function (file, source, visit) {
                     expression.expression.name === 'require' ||
                     expression.expression.name === 'assert'
                 )
-            ) {
-                return;
+            ) return;
+
+            const currentLine = node.loc.start.line;
+            const identifiers = [];
+
+            if (expression.arguments) {
+                expression.arguments.forEach(arg => {
+                    if (arg.type === 'Identifier') {
+                        identifiers.push({ name: arg.name, line: currentLine });
+                    }
+                });
             }
+
+            const allTypesOk = identifiers.every(({ name, line }) => isIntegerType(findClosestTypeBeforeLine(name, line) || ""));
+            if (!allTypesOk) return;
 
             const original = source.slice(node.range[0], node.range[1]);
             const mutatedInner = transformSafeMath(expression);
 
             let mutated;
-
             switch (type) {
                 case 'ReturnStatement':
                     mutated = `return ${mutatedInner}`;
@@ -167,13 +218,13 @@ IUOOperator.prototype.getMutations = function (file, source, visit) {
 
         visit({
             ExpressionStatement: function (node) {
-                mutateSafeMathExpression.call(this, node, 'ExpressionStatement');
+                mutateSafeMathExpression(node, 'ExpressionStatement');
             },
             ReturnStatement: function (node) {
-                mutateSafeMathExpression.call(this, node, 'ReturnStatement');
+                mutateSafeMathExpression(node, 'ReturnStatement');
             },
             VariableDeclarationStatement: function (node) {
-                mutateSafeMathExpression.call(this, node, 'VariableDeclarationStatement');
+                mutateSafeMathExpression(node, 'VariableDeclarationStatement');
             }
         });
     }
@@ -193,9 +244,7 @@ IUOOperator.prototype.getMutations = function (file, source, visit) {
             if (
                 (node.type === "Assignment" && isArithmeticOp(node.operator)) ||
                 (node.type === "BinaryOperation" && isArithmeticOp(node.operator))
-            ) {
-                return true;
-            }
+            ) return true;
 
             const fields = ['left', 'right', 'expression', 'initialValue', 'body'];
 
