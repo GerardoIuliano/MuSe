@@ -5,169 +5,24 @@ import re
 import tarfile
 from collections import defaultdict
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 import pandas as pd
 from matplotlib.font_manager import json_load
 
 
-def find_block_regex_and_braces(source_code: str, target_start_line: int):
+def find_code_block_with_line_numbers(source_code: str, target_start_line: int) -> Tuple[Optional[str], Optional[int], Optional[int], str]:
     lines = source_code.splitlines()
     if not (1 <= target_start_line <= len(lines)):
-        return None, f"Linea target ({target_start_line}) non valida."
+        return None, None, None, f"Linea target ({target_start_line}) non valida."
 
     pattern = re.compile(r"^\s*(?:function|modifier|constructor|receive|fallback)\b")
     candidates = [i for i, l in enumerate(lines) if pattern.search(l)]
-    if not candidates:
-        return None, f"Nessuna dichiarazione trovata nel codice."
 
-    block_start = None
-    for idx in reversed(candidates):
-        if idx + 1 <= target_start_line:
-            block_start = idx
-            break
-
-    if block_start is None:
-        return None, f"Impossibile associare la riga {target_start_line} a un blocco."
-
-    brace_start = None
-    for i in range(block_start, len(lines)):
-        if '{' in lines[i].split('//')[0]:
-            brace_start = i
-            break
-    if brace_start is None:
-        return None, f"Nessuna '{{' trovata dopo la riga {block_start + 1}."
-
-    brace_level = 0
-    for i in range(brace_start, len(lines)):
-        for char in lines[i].split('//')[0]:
-            if char == '{': brace_level += 1
-            elif char == '}': brace_level -= 1
-        if brace_level == 0:
-            block_end = i
-            extracted_block = "\n".join(lines[block_start:block_end + 1])
-            return extracted_block, "Success"
-
-    return None, "Parentesi graffe non bilanciate."
-
-def extract_function_from_mutations_original_line(input_csv_path, output_csv_path, row_limit=None):
-    required_columns = ['File', 'StartLine', 'EndLine']
-    output_column = 'ExtractedFunctionOriginal'
-
-    with open(input_csv_path, 'r', encoding='utf-8') as infile:
-        reader = csv.DictReader(infile)
-        rows = list(reader)[:row_limit] if row_limit else list(reader)
-
-    fieldnames = reader.fieldnames or []
-    if output_column not in fieldnames:
-        fieldnames.append(output_column)
-
-    os.makedirs(os.path.dirname(output_csv_path) or '.', exist_ok=True)
-    error_count = 0
-
-    with open(output_csv_path, 'w', newline='', encoding='utf-8') as outfile:
-        writer = csv.DictWriter(
-            outfile,
-            fieldnames=fieldnames,
-            lineterminator='\n',
-            quoting=csv.QUOTE_ALL,
-            escapechar='\\',
-            doublequote=True
-        )
-        writer.writeheader()
-        for idx, row in enumerate(rows):
-            try:
-                path, start_line = row['File'].strip(), int(row['StartLine'].strip())
-                if not os.path.isfile(path): raise FileNotFoundError(f"File non trovato: {path}")
-                with open(path, 'r', encoding='utf-8', errors='replace') as f:
-                    code = f.read()
-                extracted, status = find_block_regex_and_braces(code, start_line)
-                row[output_column] = extracted if status.startswith("Success") else status
-                if not status.startswith("Success"):
-                    error_count += 1
-            except Exception as e:
-                row[output_column] = f"Errore Riga {idx+2}: {type(e).__name__}: {e}"
-                error_count += 1
-            writer.writerow(row)
-
-    print(f"Processo completato. Errori riscontrati: {error_count}")
-
-def extract_function_from_mutations_hash_line(input_csv_path, output_csv_path, contracts_dir, filters: Optional[Dict[str, Any]] = None, row_limit: Optional[int] = None):
-    required_cols = ['Hash', 'StartLine']
-    output_col = 'ExtractedFunctionMutation'
-
-    with open(input_csv_path, 'r', encoding='utf-8') as infile:
-        reader = csv.DictReader(infile)
-        rows = list(reader)
-        if filters:
-            rows = [r for r in rows if all(
-                r.get(k) in v if isinstance(v, (list, set, tuple)) else r.get(k) == v for k, v in filters.items()
-            )]
-        if row_limit:
-            rows = rows[:row_limit]
-
-    fieldnames = reader.fieldnames or []
-    if output_col not in fieldnames:
-        fieldnames.append(output_col)
-
-    sol_files = [os.path.join(dp, f) for dp, _, files in os.walk(contracts_dir) for f in files if f.endswith('.sol')]
-    os.makedirs(os.path.dirname(output_csv_path) or '.', exist_ok=True)
-    error_count = 0
-
-    with open(output_csv_path, 'w', newline='', encoding='utf-8') as outfile:
-        writer = csv.DictWriter(
-            outfile,
-            fieldnames=fieldnames,
-            lineterminator='\n',
-            quoting=csv.QUOTE_ALL,
-            escapechar='\\',
-            doublequote=True
-        )
-        writer.writeheader()
-        for idx, row in enumerate(rows):
-            try:
-                h, sl = row['Hash'].strip(), int(row['StartLine'].strip())
-                file_path = next((p for p in sol_files if h in os.path.basename(p)), None)
-                if not file_path: raise FileNotFoundError(f"Hash {h} non trovato in nomi file.")
-                with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
-                    code = f.read()
-                extracted, status = find_block_regex_and_braces(code, sl)
-                row[output_col] = extracted if status.startswith("Success") else status
-                if not status.startswith("Success"):
-                    error_count += 1
-            except Exception as e:
-                row[output_col] = f"Errore Riga {idx+2}: {type(e).__name__}: {e}"
-                error_count += 1
-            writer.writerow(row)
-
-    print(f"Processo completato. Errori riscontrati: {error_count}")
-
-
-
-
-def find_block_with_line_numbers(source_code: str, target_start_line: int):
-    result = find_block_regex_and_braces(source_code, target_start_line)
-    if not result or result[0] is None:
-        return None, None, None, result[1] if result else "Errore sconosciuto."
-
-    extracted_block = result[0]
-    lines = source_code.splitlines()
-    pattern = re.compile(r"^\s*(?:function|modifier|constructor|receive|fallback)\b")
-    candidates = [i for i, l in enumerate(lines) if pattern.search(l)]
-
-    block_start = None
-    for idx in reversed(candidates):
-        if idx + 1 <= target_start_line:
-            block_start = idx
-            break
-
+    block_start = next((idx for idx in reversed(candidates) if idx + 1 <= target_start_line), None)
     if block_start is None:
         return None, None, None, f"Impossibile associare la riga {target_start_line} a un blocco."
 
-    brace_start = None
-    for i in range(block_start, len(lines)):
-        if '{' in lines[i].split('//')[0]:
-            brace_start = i
-            break
+    brace_start = next((i for i in range(block_start, len(lines)) if '{' in lines[i].split('//')[0]), None)
     if brace_start is None:
         return None, None, None, f"Nessuna '{{' trovata dopo la riga {block_start + 1}."
 
@@ -177,9 +32,8 @@ def find_block_with_line_numbers(source_code: str, target_start_line: int):
             if char == '{': brace_level += 1
             elif char == '}': brace_level -= 1
         if brace_level == 0:
-            block_end = i
-            extracted_block = "\n".join(lines[block_start:block_end + 1])
-            return extracted_block, block_start + 1, block_end + 1, "Success"
+            extracted_block = "\n".join(lines[block_start:i + 1])
+            return extracted_block, block_start + 1, i + 1, "Success"
 
     return None, None, None, "Parentesi graffe non bilanciate."
 
@@ -216,7 +70,7 @@ def extract_function_from_mutations_original_block(input_csv_path, output_csv_pa
                 with open(path, 'r', encoding='utf-8', errors='replace') as f:
                     code = f.read()
 
-                extracted, new_start, new_end, status = find_block_with_line_numbers(code, start_line)
+                extracted, new_start, new_end, status = find_code_block_with_line_numbers(code, start_line)
                 row[output_column] = extracted if status == "Success" else status
                 if status == "Success":
                     row['StartLineFunction'] = str(new_start)
@@ -276,7 +130,7 @@ def extract_function_from_mutations_hash_block(input_csv_path, output_csv_path, 
                 with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
                     code = f.read()
 
-                extracted, start_line, end_line, status = find_block_with_line_numbers(code, sl)
+                extracted, start_line, end_line, status = find_code_block_with_line_numbers(code, sl)
                 row[output_col] = extracted if status.startswith("Success") else status
                 if status.startswith("Success"):
                     row['StartLineFunction'] = str(start_line)
@@ -545,7 +399,7 @@ def csv_beautifier(input_file: str):
 
     # Imposta 'N/A' per Replacement e ExtractedFunctionMutation se Operator è 'LE'
     if "Operator" in df.columns:
-        df.loc[df["Operator"] == "LE", ["Replacement", "ExtractedFunctionMutation"]] = "N/A"
+        df.loc[df["Operator"] == "LE", ["Replacement", "FunctionMutation"]] = "N/A"
 
     # Ordine finale delle colonne
     final_columns = [
@@ -668,6 +522,54 @@ def csv_to_jsonl(csv_file_path, jsonl_file_path):
 
 
 
+def split_csv_by_operator(file_path, min_rows=0):
+    # Carica il CSV
+    df = pd.read_csv(file_path)
+
+    # Mischia le righe
+    df = df.sample(frac=1, random_state=42).reset_index(drop=True)
+
+    # Estrai il nome base del file
+    base_name = os.path.splitext(file_path)[0]
+
+    # Gruppo per "Operator"
+    for operator_name, group in df.groupby("Operator"):
+        # Scarta gli operatori con meno righe del minimo richiesto
+        if len(group) < min_rows:
+            print(f"Scartato: {operator_name} (solo {len(group)} righe)")
+            continue
+
+        # Calcola la differenza tra EndLineFunction e StartLineFunction
+        group["LineDiff"] = group["EndLineFunction"] - group["StartLineFunction"]
+
+        # Righe con diff <= 250
+        preferred_rows = group[group["LineDiff"] <= 250]
+
+        # Righe con diff > 250
+        fallback_rows = group[group["LineDiff"] > 250]
+
+        # Prova a selezionare 100 righe solo dalle preferred
+        sample = preferred_rows.head(100)
+
+        # Se non sono abbastanza, aggiungi dalle fallback
+        if len(sample) < 100:
+            needed = 100 - len(sample)
+            extra_rows = fallback_rows.head(needed)
+            sample = pd.concat([sample, extra_rows])
+
+        # Crea un nome file sicuro per l'operatore
+        safe_operator_name = "".join(c if c.isalnum() else "_" for c in str(operator_name))
+
+        # Crea il nuovo file
+        output_file = f"{base_name}_{safe_operator_name}.csv"
+        sample.drop(columns=["LineDiff"], errors="ignore").to_csv(output_file, index=False)
+        print(f"Creato: {output_file}")
+
+        # Chiama la funzione per convertire in JSONL
+        csv_to_jsonl(output_file, output_file.replace(".csv", ".jsonl"))
+
+
+
 
 
 
@@ -676,53 +578,54 @@ sumo_results = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/sumo_res
 sumo_results_with_function_original = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/sumo_results_with_functions_original.csv"
 sumo_results_with_function_mutation = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/sumo_results_with_functions_mutation.csv"
 
-
-
-
-
-sumo_results_filtered = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/sumo_results_filtered.csv"
-
-
-
-
 mutation_folder = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/mutants"
-jsonl_output_results = "/Users/matteocicalese/PycharmProjects/MuSe/analysis/results.jsonl"
-json_output_results_filtered = "/Users/matteocicalese/PycharmProjects/MuSe/analysis/results_filtered.jsonl"
 
-json_folder_original = '/Users/matteocicalese/results/slither-0.10.4/20250510_1239'
-json_folder_mutated = '/Users/matteocicalese/results/slither-0.10.4/20250510_1135'
+json_folder_original = '/Users/matteocicalese/results/slither-0.10.4/slither_original'
+json_folder_mutated = '/Users/matteocicalese/results/slither-0.10.4/slither_mutated'
 
 result_partial1 = '/Users/matteocicalese/PycharmProjects/MuSe/analysis/result_partial1.csv'
 result_partial2 = '/Users/matteocicalese/PycharmProjects/MuSe/analysis/result_partial2.csv'
-result_final = '/Users/matteocicalese/PycharmProjects/MuSe/analysis/result_final.csv'
-result_final_filtered = '/Users/matteocicalese/PycharmProjects/MuSe/analysis/result_final_filtered.csv'
+result_final = '/Users/matteocicalese/PycharmProjects/MuSe/output/result_final.csv'
+result_cleaned = '/Users/matteocicalese/PycharmProjects/MuSe/output/results.csv'
+jsonl_output_results = "/Users/matteocicalese/PycharmProjects/MuSe/output/results.jsonl"
+
+
+class ResultProcessing:
+    def __init__(self):
+        extract_function_from_mutations_original_block(sumo_results, sumo_results_with_function_original)
+        extract_function_from_mutations_hash_block(sumo_results_with_function_original, sumo_results_with_function_mutation, mutation_folder)
+
+        extract_findings_original_ranged(json_folder_original, sumo_results_with_function_mutation, result_partial1, use_function_lines=True)
+        extract_findings_mutated_ranged(json_folder_mutated, result_partial1, result_partial2, use_function_lines=True)
+        process_findings_diff_single_csv(result_partial2, result_final)
+
+        count_analysis_failed_mismatches_by_operator(result_final)
+
+        csv_beautifier(result_final)
+
+
+class DataCleaning:
+    def __init__(self):
+        drop_failed_cases(result_final)
+
+        count_clean_functions(result_final)
+
+        filter_by_clean_functions(result_final, result_cleaned)
+
+
+class OutputGeneration:
+    def __init__(self):
+        csv_to_jsonl(result_cleaned, jsonl_output_results)
+
+        split_csv_by_operator(result_cleaned, min_rows=30)
+
+
+# ResultProcessing()
+# DataCleaning()
+OutputGeneration()
 
 
 
-
-# extract_function_from_mutations_original_line(sumo_results, sumo_results_with_function_original)
-# extract_function_from_mutations_hash_line(sumo_results_with_function_original, sumo_results_with_function_mutation, mutation_folder)
-
-extract_function_from_mutations_original_block(sumo_results, sumo_results_with_function_original)
-extract_function_from_mutations_hash_block(sumo_results_with_function_original, sumo_results_with_function_mutation, mutation_folder)
-
-
-extract_findings_original_ranged(json_folder_original, sumo_results_with_function_mutation, result_partial1, use_function_lines=True)
-extract_findings_mutated_ranged(json_folder_mutated, result_partial1, result_partial2, use_function_lines=True)
-process_findings_diff_single_csv(result_partial2, result_final)
-
-
-count_analysis_failed_mismatches_by_operator(result_final)
-
-csv_beautifier(result_final)
-
-drop_failed_cases(result_final)
-
-count_clean_functions(result_final)
-
-filter_by_clean_functions(result_final, result_final_filtered)
-
-csv_to_jsonl(result_final_filtered, jsonl_output_results)
 
 # filter_csv_per_operator(sumo_results_final, "UTR", sumo_results_filtered)
 
