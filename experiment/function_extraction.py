@@ -2,7 +2,9 @@ import json
 import csv
 import os
 import re
+import shutil
 import tarfile
+import tempfile
 from collections import defaultdict
 from pathlib import Path
 from typing import Optional, Dict, Any, Tuple
@@ -317,6 +319,104 @@ def extract_findings_mutated_ranged(json_dir_path, input_csv_path, output_csv_pa
     print(f"\n✅ CSV aggiornato generato con successo: {output_csv_path}")
 
 
+# This function should work as one, replacing the two function before
+def extract_findings_ranged(json_dir_path, input_csv_path, output_csv_path, mode, use_function_lines=False, refactored_dir_path=None):
+    base_path = Path(json_dir_path)
+    input_data = pd.read_csv(input_csv_path, dtype=str)
+    findings_list = []
+
+    for _, row in input_data.iterrows():
+        if mode == 3:
+            if str(row.get("FunctionRefactored", "")).strip().lower() == "empty":
+                findings_list.append("N/A")
+                continue
+            if not refactored_dir_path:
+                raise ValueError("Per mode=3, è necessario specificare 'refactored_dir_path'.")
+            refactored_base_path = Path(refactored_dir_path)
+            contract_mutated_name = row["ContractMutated"]
+            contract_folder = refactored_base_path / contract_mutated_name
+
+            try:
+                start_line = int(row["StartLineRefactored"])
+                end_line = int(row["EndLineRefactored"])
+            except (ValueError, TypeError):
+                findings_list.append("Invalid lines")
+                continue
+        else:
+            try:
+                start_line = int(row["StartLineFunction"] if use_function_lines else row["StartLine"])
+                end_line = int(row["EndLineFunction"] if use_function_lines else row["EndLine"])
+            except (ValueError, TypeError):
+                findings_list.append("Invalid lines")
+                continue
+
+            file_path = row["File"]
+            file_name = os.path.basename(file_path)
+
+            if mode == 1:
+                folder_name = file_name
+            elif mode == 2:
+                hash_value = row["Hash"]
+                folder_name = f"{file_name}-{hash_value}.sol"
+            else:
+                raise ValueError("Parametro 'mode' non valido.")
+
+            contract_folder = base_path / folder_name
+
+        findings_counter = defaultdict(int)
+
+        result_tar_path = contract_folder / "result.tar"
+        if not result_tar_path.exists():
+            findings_list.append("Analysis failed")
+            continue
+
+        try:
+            with tarfile.open(result_tar_path, "r") as tar:
+                output_json_file = next((m for m in tar.getmembers() if m.name.endswith("output.json")), None)
+                if not output_json_file:
+                    findings_list.append("Analysis failed")
+                    continue
+                extracted = tar.extractfile(output_json_file)
+                data = json.load(extracted)
+
+            detectors = data.get("results", {}).get("detectors", [])
+            for detector in detectors:
+                for element in detector.get("elements", []):
+                    element_lines = element.get("source_mapping", {}).get("lines", [])
+                    if not element_lines:
+                        continue
+                    if any(start_line <= line <= end_line for line in element_lines):
+                        check_type = detector.get("check")
+                        if check_type:
+                            findings_counter[check_type] += 1
+                        break
+
+            findings_json = json.dumps(findings_counter) if findings_counter else "{}"
+            findings_list.append(findings_json)
+        except Exception:
+            findings_list.append("Analysis failed")
+
+    column_name = {
+        1: "findings_original",
+        2: "findings_mutated",
+        3: "FindingsRefactored"
+    }[mode]
+
+    if mode == 3:
+        insert_after_col = "FindingsLLM"
+        insert_idx = input_data.columns.get_loc(insert_after_col) + 1 if insert_after_col in input_data.columns else len(input_data.columns)
+        input_data.insert(loc=insert_idx, column=column_name, value=findings_list)
+    else:
+        input_data[column_name] = findings_list
+
+    with tempfile.NamedTemporaryFile("w", delete=False, newline='', suffix=".csv") as tmp_file:
+        tmp_path = tmp_file.name
+        input_data.to_csv(tmp_path, index=False)
+
+    shutil.move(tmp_path, output_csv_path)
+    print(f"\n✅ CSV aggiornato generato con successo: {output_csv_path}")
+
+
 
 def parse_findings(findings_str):
     """Parses a findings string like '"check": 2, "other": 1' into a dict."""
@@ -569,6 +669,112 @@ def split_csv_by_operator(file_path, min_rows=0):
         csv_to_jsonl(output_file, output_file.replace(".csv", ".jsonl"))
 
 
+def update_csv_with_jsonl(csv_path, jsonl_path, output_path):
+    # Leggi il CSV
+    df = pd.read_csv(csv_path)
+
+    # Crea un dizionario dal JSONL indicizzato per "ContractMutated"
+    jsonl_data = {}
+    with open(jsonl_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            record = json.loads(line)
+            key = record.get("ContractMutated")
+            if key:
+                code = record.get("code")
+                if code == "empty":
+                    code = "N/A"
+                jsonl_data[key] = {
+                    "FunctionRefactored": code,
+                    "FindingsLLM": record.get("Threats")
+                }
+
+    # Mappa i valori sui dati del CSV
+    df.insert(
+        df.columns.get_loc("FunctionMutation") + 1,
+        "FunctionRefactored",
+        df["ContractMutated"].map({k: v["FunctionRefactored"] for k, v in jsonl_data.items()})
+    )
+
+    df.insert(
+        df.columns.get_loc("FindingsMutated") + 1,
+        "FindingsLLM",
+        df["ContractMutated"].map({k: v["FindingsLLM"] for k, v in jsonl_data.items()})
+    )
+
+    # Salva il nuovo CSV
+    df.to_csv(output_path, index=False)
+
+
+def refactor_functions_from_csv(csv_path, input_folder, output_folder, updated_csv_path=None):
+    if os.path.exists(output_folder):
+        shutil.rmtree(output_folder)
+    os.makedirs(output_folder)
+
+    # Legge il file CSV
+    df = pd.read_csv(csv_path, keep_default_na=False)
+
+    # Aggiunge colonne vuote per le nuove righe
+    df['StartLineRefactored'] = None
+    df['EndLineRefactored'] = None
+
+    for idx, row in df.iterrows():
+        filename = row['ContractMutated']
+        start_line = int(row['StartLineFunction'])
+        end_line = int(row['EndLineFunction'])
+        new_function_code = row['FunctionRefactored']
+
+        # Salta se la funzione refactored è mancante, "empty" o "n/a"
+        if pd.isna(new_function_code) or str(new_function_code).strip().lower() in ["empty", "n/a"]:
+            print(f"Funzione mancante o non valida per {filename}, riga {idx + 2}, nessuna modifica eseguita.")
+            df.at[idx, 'StartLineRefactored'] = "N/A"
+            df.at[idx, 'EndLineRefactored'] = "N/A"
+            continue
+
+        input_file_path = os.path.join(input_folder, filename)
+        output_file_path = os.path.join(output_folder, filename)
+
+        # Verifica che il file esista
+        if not os.path.isfile(input_file_path):
+            print(f"File non trovato: {input_file_path}")
+            continue
+
+        with open(input_file_path, 'r', encoding='utf-8') as file:
+            lines = file.readlines()
+
+        new_function_lines = [line + '\n' for line in str(new_function_code).strip().split('\n')]
+        new_start = start_line
+        new_end = start_line + len(new_function_lines) - 1
+
+        # Costruisce il nuovo contenuto del file
+        updated_lines = (
+            lines[:start_line - 1] +
+            new_function_lines +
+            lines[end_line:]
+        )
+
+        # Scrive il file modificato
+        with open(output_file_path, 'w', encoding='utf-8') as file:
+            file.writelines(updated_lines)
+
+        # Aggiorna il dataframe
+        df.at[idx, 'StartLineRefactored'] = new_start
+        df.at[idx, 'EndLineRefactored'] = new_end
+
+        print(f"File modificato salvato in: {output_file_path}")
+
+    # Riordina le colonne
+    cols = df.columns.tolist()
+    end_idx = cols.index('EndLineFunction')
+    cols.insert(end_idx + 1, cols.pop(cols.index('StartLineRefactored')))
+    cols.insert(end_idx + 2, cols.pop(cols.index('EndLineRefactored')))
+    df = df[cols]
+
+    # Salva il CSV aggiornato
+    updated_csv_path = updated_csv_path or csv_path
+    df.to_csv(updated_csv_path, index=False)
+    print(f"CSV aggiornato salvato in: {updated_csv_path}")
+
+
 
 
 
@@ -580,8 +786,10 @@ sumo_results_with_function_mutation = "/Users/matteocicalese/PycharmProjects/MuS
 
 mutation_folder = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/mutants"
 
-json_folder_original = '/Users/matteocicalese/results/slither-0.10.4/slither_original'
-json_folder_mutated = '/Users/matteocicalese/results/slither-0.10.4/slither_mutated'
+slither_results_original = '/Users/matteocicalese/results/slither-0.10.4/slither_original'
+slither_results_mutated = '/Users/matteocicalese/results/slither-0.10.4/slither_mutated'
+slither_results_refactored = '/Users/matteocicalese/results/slither-0.10.4/slither_refactored'
+
 
 result_partial1 = '/Users/matteocicalese/PycharmProjects/MuSe/analysis/result_partial1.csv'
 result_partial2 = '/Users/matteocicalese/PycharmProjects/MuSe/analysis/result_partial2.csv'
@@ -589,14 +797,45 @@ result_final = '/Users/matteocicalese/PycharmProjects/MuSe/output/result_final.c
 result_cleaned = '/Users/matteocicalese/PycharmProjects/MuSe/output/results.csv'
 jsonl_output_results = "/Users/matteocicalese/PycharmProjects/MuSe/output/results.jsonl"
 
+##################################################################################################################
+
+result_UR1_unprocessed = '/Users/matteocicalese/PycharmProjects/MuSe/output/results_UR1.csv'
+result_UR2_unprocessed = '/Users/matteocicalese/PycharmProjects/MuSe/output/results_UR2.csv'
+result_IUO1_unprocessed = '/Users/matteocicalese/PycharmProjects/MuSe/output/results_IUO1.csv'
+result_TD_unprocessed = '/Users/matteocicalese/PycharmProjects/MuSe/output/results_TD.csv'
+result_TX_unprocessed = '/Users/matteocicalese/PycharmProjects/MuSe/output/results_TX.csv'
+result_CL_unprocessed = '/Users/matteocicalese/PycharmProjects/MuSe/output/results_CL.csv'
+
+
+jsonl_UR1 = '/Users/matteocicalese/PycharmProjects/MuSe/gdv/UR1.jsonl'
+jsonl_UR2 = '/Users/matteocicalese/PycharmProjects/MuSe/gdv/UR2.jsonl'
+jsonl_IUO1 = '/Users/matteocicalese/PycharmProjects/MuSe/gdv/IUO1.jsonl'
+jsonl_TD = '/Users/matteocicalese/PycharmProjects/MuSe/gdv/TD.jsonl'
+jsonl_TX = '/Users/matteocicalese/PycharmProjects/MuSe/gdv/TX.jsonl'
+jsonl_CL = '/Users/matteocicalese/PycharmProjects/MuSe/gdv/CL.jsonl'
+
+result_UR1 = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase/results_UR1.csv'
+result_UR2 = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase/results_UR2.csv'
+result_IUO1 = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase/results_IUO1.csv'
+result_TD = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase/results_TD.csv'
+result_TX = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase/results_TX.csv'
+result_CL = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase/results_CL.csv'
+
+contracts_refactored_folder = '/Users/matteocicalese/PycharmProjects/MuSe/contracts_refactored'
+
+
+
 
 class ResultProcessing:
     def __init__(self):
         extract_function_from_mutations_original_block(sumo_results, sumo_results_with_function_original)
         extract_function_from_mutations_hash_block(sumo_results_with_function_original, sumo_results_with_function_mutation, mutation_folder)
 
-        extract_findings_original_ranged(json_folder_original, sumo_results_with_function_mutation, result_partial1, use_function_lines=True)
-        extract_findings_mutated_ranged(json_folder_mutated, result_partial1, result_partial2, use_function_lines=True)
+        extract_findings_original_ranged(slither_results_original, sumo_results_with_function_mutation, result_partial1, use_function_lines=True)
+        # extract_findings_ranged(slither_results_original, sumo_results_with_function_mutation, result_partial1, use_function_lines=True, mode=1)
+        extract_findings_mutated_ranged(slither_results_mutated, result_partial1, result_partial2, use_function_lines=True)
+        # extract_findings_ranged(slither_results_mutated, result_partial1, result_partial2, use_function_lines=True, mode=2)
+
         process_findings_diff_single_csv(result_partial2, result_final)
 
         count_analysis_failed_mismatches_by_operator(result_final)
@@ -620,9 +859,43 @@ class OutputGeneration:
         split_csv_by_operator(result_cleaned, min_rows=30)
 
 
+class FinalAnalysis:
+    def __init__(self):
+        update_csv_with_jsonl(result_UR1_unprocessed, jsonl_UR1, result_UR1)
+        update_csv_with_jsonl(result_UR2_unprocessed, jsonl_UR2, result_UR2)
+        update_csv_with_jsonl(result_IUO1_unprocessed, jsonl_IUO1, result_IUO1)
+        update_csv_with_jsonl(result_TD_unprocessed, jsonl_TD, result_TD)
+        update_csv_with_jsonl(result_TX_unprocessed, jsonl_TX, result_TX)
+        update_csv_with_jsonl(result_CL_unprocessed, jsonl_CL, result_CL)
+
+        refactor_functions_from_csv(result_UR1, mutation_folder, contracts_refactored_folder)
+        refactor_functions_from_csv(result_UR2, mutation_folder, contracts_refactored_folder)
+        refactor_functions_from_csv(result_IUO1, mutation_folder, contracts_refactored_folder)
+        refactor_functions_from_csv(result_TD, mutation_folder, contracts_refactored_folder)
+        refactor_functions_from_csv(result_TX, mutation_folder, contracts_refactored_folder)
+        refactor_functions_from_csv(result_CL, mutation_folder, contracts_refactored_folder)
+
+        extract_findings_ranged(slither_results_refactored, result_UR1, result_UR1,
+            mode=3, refactored_dir_path=slither_results_refactored)
+        extract_findings_ranged(slither_results_refactored, result_UR2, result_UR2,
+            mode=3, refactored_dir_path=slither_results_refactored)
+        extract_findings_ranged(slither_results_refactored, result_IUO1, result_IUO1,
+            mode=3, refactored_dir_path=slither_results_refactored)
+        extract_findings_ranged(slither_results_refactored, result_TD, result_TD,
+            mode=3, refactored_dir_path=slither_results_refactored)
+        extract_findings_ranged(slither_results_refactored, result_TX, result_TX,
+            mode=3, refactored_dir_path=slither_results_refactored)
+        extract_findings_ranged(slither_results_refactored, result_CL, result_CL,
+            mode=3, refactored_dir_path=slither_results_refactored)
+
+
+
+
+
 # ResultProcessing()
 # DataCleaning()
-OutputGeneration()
+# OutputGeneration()
+FinalAnalysis()
 
 
 
