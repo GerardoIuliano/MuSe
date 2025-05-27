@@ -320,9 +320,9 @@ def extract_findings_mutated_ranged(json_dir_path, input_csv_path, output_csv_pa
 
 
 # This function should work as one, replacing the two function before
-def extract_findings_ranged(json_dir_path, input_csv_path, output_csv_path, mode, use_function_lines=False, refactored_dir_path=None):
+def extract_findings_ranged(json_dir_path, input_csv_path, output_csv_path, mode, use_function_lines=False):
     base_path = Path(json_dir_path)
-    input_data = pd.read_csv(input_csv_path, dtype=str)
+    input_data = pd.read_csv(input_csv_path, dtype=str, keep_default_na=False)
     findings_list = []
 
     for _, row in input_data.iterrows():
@@ -330,9 +330,7 @@ def extract_findings_ranged(json_dir_path, input_csv_path, output_csv_path, mode
             if str(row.get("FunctionRefactored", "")).strip().lower() == "empty":
                 findings_list.append("N/A")
                 continue
-            if not refactored_dir_path:
-                raise ValueError("Per mode=3, è necessario specificare 'refactored_dir_path'.")
-            refactored_base_path = Path(refactored_dir_path)
+            refactored_base_path = Path(json_dir_path)
             contract_mutated_name = row["ContractMutated"]
             contract_folder = refactored_base_path / contract_mutated_name
 
@@ -340,7 +338,7 @@ def extract_findings_ranged(json_dir_path, input_csv_path, output_csv_path, mode
                 start_line = int(row["StartLineRefactored"])
                 end_line = int(row["EndLineRefactored"])
             except (ValueError, TypeError):
-                findings_list.append("Invalid lines")
+                findings_list.append("N/A")
                 continue
         else:
             try:
@@ -706,9 +704,8 @@ def update_csv_with_jsonl(csv_path, jsonl_path, output_path):
 
 
 def refactor_functions_from_csv(csv_path, input_folder, output_folder, updated_csv_path=None):
-    if os.path.exists(output_folder):
-        shutil.rmtree(output_folder)
-    os.makedirs(output_folder)
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
 
     # Legge il file CSV
     df = pd.read_csv(csv_path, keep_default_na=False)
@@ -752,6 +749,8 @@ def refactor_functions_from_csv(csv_path, input_folder, output_folder, updated_c
             lines[end_line:]
         )
 
+        print(input_file_path)
+
         # Scrive il file modificato
         with open(output_file_path, 'w', encoding='utf-8') as file:
             file.writelines(updated_lines)
@@ -775,29 +774,27 @@ def refactor_functions_from_csv(csv_path, input_folder, output_folder, updated_c
     print(f"CSV aggiornato salvato in: {updated_csv_path}")
 
 
+##################################################################################################################
 
-
-
-
-
-sumo_results = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/sumo_results.csv"
-sumo_results_with_function_original = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/sumo_results_with_functions_original.csv"
-sumo_results_with_function_mutation = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/sumo_results_with_functions_mutation.csv"
 
 mutation_folder = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/mutants"
+sumo_results = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/sumo_results.csv"
+contracts_refactored_folder = '/Users/matteocicalese/PycharmProjects/MuSe/contracts_refactored'
 
 slither_results_original = '/Users/matteocicalese/results/slither-0.10.4/slither_original'
 slither_results_mutated = '/Users/matteocicalese/results/slither-0.10.4/slither_mutated'
 slither_results_refactored = '/Users/matteocicalese/results/slither-0.10.4/slither_refactored'
 
-
+#file transitori
+sumo_results_with_function_original = "/Users/matteocicalese/PycharmProjects/MuSe/output/sumo_results_with_functions_original.csv"
+sumo_results_with_function_mutation = "/Users/matteocicalese/PycharmProjects/MuSe/output/sumo_results_with_functions_mutation.csv"
 result_partial1 = '/Users/matteocicalese/PycharmProjects/MuSe/analysis/result_partial1.csv'
 result_partial2 = '/Users/matteocicalese/PycharmProjects/MuSe/analysis/result_partial2.csv'
 result_final = '/Users/matteocicalese/PycharmProjects/MuSe/output/result_final.csv'
+
 result_cleaned = '/Users/matteocicalese/PycharmProjects/MuSe/output/results.csv'
 jsonl_output_results = "/Users/matteocicalese/PycharmProjects/MuSe/output/results.jsonl"
 
-##################################################################################################################
 
 result_UR1_unprocessed = '/Users/matteocicalese/PycharmProjects/MuSe/output/results_UR1.csv'
 result_UR2_unprocessed = '/Users/matteocicalese/PycharmProjects/MuSe/output/results_UR2.csv'
@@ -806,13 +803,19 @@ result_TD_unprocessed = '/Users/matteocicalese/PycharmProjects/MuSe/output/resul
 result_TX_unprocessed = '/Users/matteocicalese/PycharmProjects/MuSe/output/results_TX.csv'
 result_CL_unprocessed = '/Users/matteocicalese/PycharmProjects/MuSe/output/results_CL.csv'
 
-
 jsonl_UR1 = '/Users/matteocicalese/PycharmProjects/MuSe/gdv/UR1.jsonl'
 jsonl_UR2 = '/Users/matteocicalese/PycharmProjects/MuSe/gdv/UR2.jsonl'
 jsonl_IUO1 = '/Users/matteocicalese/PycharmProjects/MuSe/gdv/IUO1.jsonl'
 jsonl_TD = '/Users/matteocicalese/PycharmProjects/MuSe/gdv/TD.jsonl'
 jsonl_TX = '/Users/matteocicalese/PycharmProjects/MuSe/gdv/TX.jsonl'
 jsonl_CL = '/Users/matteocicalese/PycharmProjects/MuSe/gdv/CL.jsonl'
+
+output_jsonl_UR1 = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase/results_UR1.jsonl'
+output_jsonl_UR2 = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase/results_UR2.jsonl'
+output_jsonl_IUO1 = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase/results_IUO1.jsonl'
+output_jsonl_TD = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase/results_TD.jsonl'
+output_jsonl_TX = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase/results_TX.jsonl'
+output_jsonl_CL = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase/results_CL.jsonl'
 
 result_UR1 = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase/results_UR1.csv'
 result_UR2 = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase/results_UR2.csv'
@@ -821,9 +824,8 @@ result_TD = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase/results_TD.c
 result_TX = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase/results_TX.csv'
 result_CL = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase/results_CL.csv'
 
-contracts_refactored_folder = '/Users/matteocicalese/PycharmProjects/MuSe/contracts_refactored'
 
-
+##################################################################################################################
 
 
 class ResultProcessing:
@@ -875,19 +877,19 @@ class FinalAnalysis:
         refactor_functions_from_csv(result_TX, mutation_folder, contracts_refactored_folder)
         refactor_functions_from_csv(result_CL, mutation_folder, contracts_refactored_folder)
 
-        extract_findings_ranged(slither_results_refactored, result_UR1, result_UR1,
-            mode=3, refactored_dir_path=slither_results_refactored)
-        extract_findings_ranged(slither_results_refactored, result_UR2, result_UR2,
-            mode=3, refactored_dir_path=slither_results_refactored)
-        extract_findings_ranged(slither_results_refactored, result_IUO1, result_IUO1,
-            mode=3, refactored_dir_path=slither_results_refactored)
-        extract_findings_ranged(slither_results_refactored, result_TD, result_TD,
-            mode=3, refactored_dir_path=slither_results_refactored)
-        extract_findings_ranged(slither_results_refactored, result_TX, result_TX,
-            mode=3, refactored_dir_path=slither_results_refactored)
-        extract_findings_ranged(slither_results_refactored, result_CL, result_CL,
-            mode=3, refactored_dir_path=slither_results_refactored)
+        extract_findings_ranged(slither_results_refactored, result_UR1, result_UR1, mode=3)
+        extract_findings_ranged(slither_results_refactored, result_UR2, result_UR2, mode=3)
+        extract_findings_ranged(slither_results_refactored, result_IUO1, result_IUO1, mode=3)
+        extract_findings_ranged(slither_results_refactored, result_TD, result_TD, mode=3)
+        extract_findings_ranged(slither_results_refactored, result_TX, result_TX, mode=3)
+        extract_findings_ranged(slither_results_refactored, result_CL, result_CL, mode=3)
 
+        csv_to_jsonl(result_UR1, output_jsonl_UR1)
+        csv_to_jsonl(result_UR2, output_jsonl_UR2)
+        csv_to_jsonl(result_IUO1, output_jsonl_IUO1)
+        csv_to_jsonl(result_TD, output_jsonl_TD)
+        csv_to_jsonl(result_TX, output_jsonl_TX)
+        csv_to_jsonl(result_CL, output_jsonl_CL)
 
 
 
@@ -896,14 +898,3 @@ class FinalAnalysis:
 # DataCleaning()
 # OutputGeneration()
 FinalAnalysis()
-
-
-
-
-# filter_csv_per_operator(sumo_results_final, "UTR", sumo_results_filtered)
-
-
-
-
-
-
