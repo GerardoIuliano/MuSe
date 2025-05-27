@@ -9,7 +9,6 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Optional, Dict, Any, Tuple
 import pandas as pd
-from matplotlib.font_manager import json_load
 
 
 def find_code_block_with_line_numbers(source_code: str, target_start_line: int) -> Tuple[Optional[str], Optional[int], Optional[int], str]:
@@ -749,8 +748,6 @@ def refactor_functions_from_csv(csv_path, input_folder, output_folder, updated_c
             lines[end_line:]
         )
 
-        print(input_file_path)
-
         # Scrive il file modificato
         with open(output_file_path, 'w', encoding='utf-8') as file:
             file.writelines(updated_lines)
@@ -786,29 +783,29 @@ slither_results_mutated = '/Users/matteocicalese/results/slither-0.10.4/slither_
 slither_results_refactored = '/Users/matteocicalese/results/slither-0.10.4/slither_refactored'
 
 #file transitori
-sumo_results_with_function_original = "/Users/matteocicalese/PycharmProjects/MuSe/output/sumo_results_with_functions_original.csv"
-sumo_results_with_function_mutation = "/Users/matteocicalese/PycharmProjects/MuSe/output/sumo_results_with_functions_mutation.csv"
-result_partial1 = '/Users/matteocicalese/PycharmProjects/MuSe/analysis/result_partial1.csv'
-result_partial2 = '/Users/matteocicalese/PycharmProjects/MuSe/analysis/result_partial2.csv'
-result_final = '/Users/matteocicalese/PycharmProjects/MuSe/output/result_final.csv'
+sumo_results_with_function_original = "/Users/matteocicalese/PycharmProjects/MuSe/intermediate_files/sumo_results_with_functions_original.csv"
+sumo_results_with_function_mutation = "/Users/matteocicalese/PycharmProjects/MuSe/intermediate_files/sumo_results_with_functions_mutation.csv"
+result_partial1 = '/Users/matteocicalese/PycharmProjects/MuSe/intermediate_files/result_partial1.csv'
+result_partial2 = '/Users/matteocicalese/PycharmProjects/MuSe/intermediate_files/result_partial2.csv'
+result_final = '/Users/matteocicalese/PycharmProjects/MuSe/intermediate_files/result_final.csv'
 
-result_cleaned = '/Users/matteocicalese/PycharmProjects/MuSe/output/results.csv'
-jsonl_output_results = "/Users/matteocicalese/PycharmProjects/MuSe/output/results.jsonl"
+result_cleaned = '/Users/matteocicalese/PycharmProjects/MuSe/initial_phase/results.csv'
+jsonl_output_results = "/Users/matteocicalese/PycharmProjects/MuSe/initial_phase/results.jsonl"
 
 
-result_UR1_unprocessed = '/Users/matteocicalese/PycharmProjects/MuSe/output/results_UR1.csv'
-result_UR2_unprocessed = '/Users/matteocicalese/PycharmProjects/MuSe/output/results_UR2.csv'
-result_IUO1_unprocessed = '/Users/matteocicalese/PycharmProjects/MuSe/output/results_IUO1.csv'
-result_TD_unprocessed = '/Users/matteocicalese/PycharmProjects/MuSe/output/results_TD.csv'
-result_TX_unprocessed = '/Users/matteocicalese/PycharmProjects/MuSe/output/results_TX.csv'
-result_CL_unprocessed = '/Users/matteocicalese/PycharmProjects/MuSe/output/results_CL.csv'
+result_UR1_unprocessed = '/Users/matteocicalese/PycharmProjects/MuSe/initial_phase/results_UR1.csv'
+result_UR2_unprocessed = '/Users/matteocicalese/PycharmProjects/MuSe/initial_phase/results_UR2.csv'
+result_IUO1_unprocessed = '/Users/matteocicalese/PycharmProjects/MuSe/initial_phase/results_IUO1.csv'
+result_TD_unprocessed = '/Users/matteocicalese/PycharmProjects/MuSe/initial_phase/results_TD.csv'
+result_TX_unprocessed = '/Users/matteocicalese/PycharmProjects/MuSe/initial_phase/results_TX.csv'
+result_CL_unprocessed = '/Users/matteocicalese/PycharmProjects/MuSe/initial_phase/results_CL.csv'
 
-jsonl_UR1 = '/Users/matteocicalese/PycharmProjects/MuSe/gdv/UR1.jsonl'
-jsonl_UR2 = '/Users/matteocicalese/PycharmProjects/MuSe/gdv/UR2.jsonl'
-jsonl_IUO1 = '/Users/matteocicalese/PycharmProjects/MuSe/gdv/IUO1.jsonl'
-jsonl_TD = '/Users/matteocicalese/PycharmProjects/MuSe/gdv/TD.jsonl'
-jsonl_TX = '/Users/matteocicalese/PycharmProjects/MuSe/gdv/TX.jsonl'
-jsonl_CL = '/Users/matteocicalese/PycharmProjects/MuSe/gdv/CL.jsonl'
+jsonl_UR1 = '/Users/matteocicalese/PycharmProjects/MuSe/input_files/UR1.jsonl'
+jsonl_UR2 = '/Users/matteocicalese/PycharmProjects/MuSe/input_files/UR2.jsonl'
+jsonl_IUO1 = '/Users/matteocicalese/PycharmProjects/MuSe/input_files/IUO1.jsonl'
+jsonl_TD = '/Users/matteocicalese/PycharmProjects/MuSe/input_files/TD.jsonl'
+jsonl_TX = '/Users/matteocicalese/PycharmProjects/MuSe/input_files/TX.jsonl'
+jsonl_CL = '/Users/matteocicalese/PycharmProjects/MuSe/input_files/CL.jsonl'
 
 output_jsonl_UR1 = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase/results_UR1.jsonl'
 output_jsonl_UR2 = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase/results_UR2.jsonl'
@@ -833,10 +830,10 @@ class ResultProcessing:
         extract_function_from_mutations_original_block(sumo_results, sumo_results_with_function_original)
         extract_function_from_mutations_hash_block(sumo_results_with_function_original, sumo_results_with_function_mutation, mutation_folder)
 
-        extract_findings_original_ranged(slither_results_original, sumo_results_with_function_mutation, result_partial1, use_function_lines=True)
-        # extract_findings_ranged(slither_results_original, sumo_results_with_function_mutation, result_partial1, use_function_lines=True, mode=1)
-        extract_findings_mutated_ranged(slither_results_mutated, result_partial1, result_partial2, use_function_lines=True)
-        # extract_findings_ranged(slither_results_mutated, result_partial1, result_partial2, use_function_lines=True, mode=2)
+        # extract_findings_original_ranged(slither_results_original, sumo_results_with_function_mutation, result_partial1, use_function_lines=True)
+        extract_findings_ranged(slither_results_original, sumo_results_with_function_mutation, result_partial1, use_function_lines=True, mode=1)
+        # extract_findings_mutated_ranged(slither_results_mutated, result_partial1, result_partial2, use_function_lines=True)
+        extract_findings_ranged(slither_results_mutated, result_partial1, result_partial2, use_function_lines=True, mode=2)
 
         process_findings_diff_single_csv(result_partial2, result_final)
 
@@ -894,7 +891,7 @@ class FinalAnalysis:
 
 
 
-# ResultProcessing()
-# DataCleaning()
-# OutputGeneration()
+ResultProcessing()
+DataCleaning()
+OutputGeneration()
 FinalAnalysis()
