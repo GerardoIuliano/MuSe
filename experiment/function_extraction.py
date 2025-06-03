@@ -8,7 +8,13 @@ import tempfile
 from collections import defaultdict
 from pathlib import Path
 from typing import Optional, Dict, Any, Tuple
+
+import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.metrics import multilabel_confusion_matrix, confusion_matrix, ConfusionMatrixDisplay
+from sklearn.preprocessing import MultiLabelBinarizer
+import seaborn as sns
 
 
 def find_code_block_with_line_numbers(source_code: str, target_start_line: int) -> Tuple[Optional[str], Optional[int], Optional[int], str]:
@@ -400,7 +406,7 @@ def extract_findings_ranged(json_dir_path, input_csv_path, output_csv_path, mode
     }[mode]
 
     if mode == 3:
-        insert_after_col = "FindingsLLM"
+        insert_after_col = "FindingsMutatedLLM"
         insert_idx = input_data.columns.get_loc(insert_after_col) + 1 if insert_after_col in input_data.columns else len(input_data.columns)
         input_data.insert(loc=insert_idx, column=column_name, value=findings_list)
     else:
@@ -463,10 +469,47 @@ def process_findings_diff_single_csv(input_csv, output_csv):
     # print(f"✅ Output saved with 'differences' column to: {output_csv}")
 
 
+def add_oracle(input_file: str, mapping: Dict[str, str]) -> None:
+    """
+    Legge un file CSV, controlla la colonna 'Operator' rispetto a un mapping fornito,
+    e aggiunge/modifica la colonna 'FindingsMutatedOracle' subito dopo 'FindingsMutated',
+    sovrascrivendo il file di input.
+
+    :param input_file: Percorso del file CSV da modificare.
+    :param mapping: Dizionario con mapping da stringa a stringa.
+    """
+    temp_file = input_file + ".tmp"
+
+    with open(input_file, mode='r', newline='', encoding='utf-8') as infile, \
+            open(temp_file, mode='w', newline='', encoding='utf-8') as outfile:
+
+        reader = csv.DictReader(infile)
+        fieldnames = reader.fieldnames.copy()
+
+        if "findings_mutated" not in fieldnames or "operator" not in fieldnames:
+            raise ValueError("Il file CSV deve contenere le colonne 'findings_mutated' e 'operator'.")
+
+        # Inserisci la nuova colonna subito dopo 'FindingsMutated'
+        if "FindingsMutatedOracle" in fieldnames:
+            fieldnames.remove("FindingsMutatedOracle")
+        idx = fieldnames.index("findings_mutated") + 1
+        fieldnames.insert(idx, "FindingsMutatedOracle")
+
+        writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for row in reader:
+            operator = row.get("operator", "")
+            row["FindingsMutatedOracle"] = mapping.get(operator, "")
+            writer.writerow(row)
+
+    # Sovrascrive il file originale con quello temporaneo
+    os.replace(temp_file, input_file)
+
 
 def csv_beautifier(input_file: str):
     # Carica il file CSV
-    df = pd.read_csv(input_file)
+    df = pd.read_csv(input_file, keep_default_na=False)
 
     # Rimuove colonne inutili se presenti
     df = df.drop(columns=[col for col in ["start", "end", "status", "time(ms)"] if col in df.columns])
@@ -502,7 +545,8 @@ def csv_beautifier(input_file: str):
     final_columns = [
         "ContractOriginal", "ContractMutated", "Operator", "Original", "Replacement",
         "StartLineMutation", "EndLineMutation", "FunctionOriginal", "FunctionMutation",
-        "StartLineFunction", "EndLineFunction", "FindingsOriginal", "FindingsMutated", "Differences"
+        "StartLineFunction", "EndLineFunction", "FindingsOriginal", "FindingsMutated",
+        "FindingsMutatedOracle", "Differences"
     ]
     df = df[[col for col in final_columns if col in df.columns]]
 
@@ -666,13 +710,13 @@ def split_csv_by_operator(file_path, min_rows=0):
         csv_to_jsonl(output_file, output_file.replace(".csv", ".jsonl"))
 
 
-def update_csv_with_jsonl(csv_path, jsonl_path, output_path):
+def update_csv_with_jsonl(csv_path, jsonl_mutated_path, jsonl_original_path, output_path):
     # Leggi il CSV
-    df = pd.read_csv(csv_path)
+    df = pd.read_csv(csv_path, keep_default_na=False)
 
-    # Crea un dizionario dal JSONL indicizzato per "ContractMutated"
-    jsonl_data = {}
-    with open(jsonl_path, 'r', encoding='utf-8') as f:
+    # Crea un dizionario dal JSONL MUTATED indicizzato per "ContractMutated"
+    mutated_data = {}
+    with open(jsonl_mutated_path, 'r', encoding='utf-8') as f:
         for line in f:
             record = json.loads(line)
             key = record.get("ContractMutated")
@@ -680,26 +724,44 @@ def update_csv_with_jsonl(csv_path, jsonl_path, output_path):
                 code = record.get("code")
                 if code == "empty":
                     code = "N/A"
-                jsonl_data[key] = {
+                mutated_data[key] = {
                     "FunctionRefactored": code,
-                    "FindingsLLM": record.get("Threats")
+                    "FindingsMutatedLLM": record.get("Threats")
                 }
 
-    # Mappa i valori sui dati del CSV
+    # Crea un dizionario dal JSONL ORIGINAL indicizzato per "ContractMutated", ignorando il campo "code"
+    original_data = {}
+    with open(jsonl_original_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            record = json.loads(line)
+            key = record.get("ContractMutated")
+            if key:
+                original_data[key] = record.get("Threats")
+
+    # Inserisci la colonna FindingsOriginalLLM prima di FindingsMutatedLLM
+    df.insert(
+        df.columns.get_loc("FindingsMutated"),
+        "FindingsOriginalLLM",
+        df["ContractMutated"].map(original_data)
+    )
+
+    # Inserisci FunctionRefactored subito dopo FunctionMutation
     df.insert(
         df.columns.get_loc("FunctionMutation") + 1,
         "FunctionRefactored",
-        df["ContractMutated"].map({k: v["FunctionRefactored"] for k, v in jsonl_data.items()})
+        df["ContractMutated"].map({k: v["FunctionRefactored"] for k, v in mutated_data.items()})
     )
 
+    # Inserisci FindingsMutatedLLM subito dopo FindingsMutated
     df.insert(
-        df.columns.get_loc("FindingsMutated") + 1,
-        "FindingsLLM",
-        df["ContractMutated"].map({k: v["FindingsLLM"] for k, v in jsonl_data.items()})
+        df.columns.get_loc("FindingsMutatedOracle") + 1,
+        "FindingsMutatedLLM",
+        df["ContractMutated"].map({k: v["FindingsMutatedLLM"] for k, v in mutated_data.items()})
     )
 
     # Salva il nuovo CSV
     df.to_csv(output_path, index=False)
+
 
 
 def refactor_functions_from_csv(csv_path, input_folder, output_folder, updated_csv_path=None):
@@ -771,12 +833,187 @@ def refactor_functions_from_csv(csv_path, input_folder, output_folder, updated_c
     print(f"CSV aggiornato salvato in: {updated_csv_path}")
 
 
+def merge_csv_in_folder(folder_path, output_file):
+    """
+    Unisce tutti i file CSV in una cartella in un unico DataFrame.
+
+    Args:
+        folder_path (str): Percorso della cartella contenente i file CSV.
+        output_file: Percorso del file di output.
+
+    Returns:
+        pd.DataFrame: DataFrame contenente il merge di tutti i CSV.
+    """
+    #output_file = os.path.join(folder_path, "results.csv")
+
+    # Se il file results.csv esiste già, lo elimina
+    if os.path.exists(output_file):
+        os.remove(output_file)
+
+    csv_files = [f for f in os.listdir(folder_path) if f.endswith('.csv') and f != "results.csv"]
+
+    dataframes = []
+    for file in csv_files:
+        file_path = os.path.join(folder_path, file)
+        df = pd.read_csv(file_path, keep_default_na=False)
+        dataframes.append(df)
+
+    merged_df = pd.concat(dataframes, ignore_index=True)
+
+    # Converti i float che rappresentano interi in veri interi
+    for col in merged_df.columns:
+        if pd.api.types.is_float_dtype(merged_df[col]):
+            if merged_df[col].dropna().apply(float.is_integer).all():
+                merged_df[col] = merged_df[col].astype('Int64')
+
+    merged_df.to_csv(output_file, index=False)
+    return merged_df
+
+
+def add_original_oracle(file_path):
+    """
+    Aggiunge una colonna 'FindingsOriginalOracle' dopo 'FindingsOriginal' con valore 'none'
+    e sovrascrive il file CSV originale.
+
+    :param file_path: percorso del file CSV da modificare
+    """
+    # Legge il file CSV
+    df = pd.read_csv(file_path)
+
+    # Verifica che la colonna esista
+    if "FindingsOriginal" not in df.columns:
+        raise ValueError("La colonna 'FindingsOriginal' non è presente nel file.")
+
+    # Trova la posizione di 'FindingsOriginal'
+    col_index = df.columns.get_loc("FindingsOriginal")
+
+    # Inserisce la nuova colonna con valore "none"
+    df.insert(col_index + 1, "FindingsOriginalOracle", "none")
+
+    # Sovrascrive il file originale
+    df.to_csv(file_path, index=False)
+
+
+def align_findings(csv_path, column_name, mapping):
+    """
+    Legge un file CSV, sostituisce i valori di una colonna secondo un mapping, e restituisce il DataFrame modificato.
+
+    Args:
+        csv_path (str): Percorso del file CSV da leggere.
+        column_name (str): Nome della colonna su cui applicare il mapping.
+        mapping (dict): Dizionario con i valori da sostituire come {valore_originale: nuovo_valore}.
+        output_path (str, optional): Percorso per salvare il CSV modificato. Se None, non salva su file.
+
+    Returns:
+        pd.DataFrame: Il DataFrame modificato.
+    """
+    """
+    Modifica direttamente il CSV passato in input, sostituendo i valori della colonna specificata secondo il mapping.
+
+    Args:
+        csv_path (str): Percorso del file CSV da modificare.
+        nome_colonna (str): Nome della colonna su cui applicare il mapping.
+        mapping (dict): Dizionario di sostituzione {valore_vecchio: valore_nuovo}.
+
+    """
+    df = pd.read_csv(csv_path)
+
+    if column_name not in df.columns:
+        raise ValueError(f"La colonna '{column_name}' non esiste nel CSV.")
+
+    df[column_name] = df[column_name].map(mapping).fillna(df[column_name])
+
+    # Sovrascrive il file originale
+    df.to_csv(csv_path, index=False)
+
+
+def confusion_matrix_generation(csv_path, true_col, pred_col, class_names=None):
+    """
+    Legge un CSV, estrae le colonne dei valori veri e predetti,
+    e mostra la matrice di confusione multiclasse con migliore leggibilità.
+    """
+    # Leggi il file CSV
+    df = pd.read_csv(csv_path, keep_default_na=False)
+    y_true = df[true_col]
+    y_pred = df[pred_col]
+
+    # Deduci i nomi delle classi se non forniti
+    if class_names is None:
+        class_names = sorted(set(y_true) | set(y_pred))
+
+    # Rimuovi temporaneamente 'none' per ordinarla dopo
+    if 'none' in class_names:
+        class_names = [cls for cls in class_names if cls != 'none']
+        class_names.sort(key=len)  # Ordina per lunghezza testuale
+        class_names.append('none')  # Rimetti 'none' alla fine
+    else:
+        class_names.sort(key=len)
+
+    # Calcola la matrice di confusione nell’ordine corretto
+    cm = confusion_matrix(y_true, y_pred, labels=class_names)
+
+    # Plot
+    fig, ax = plt.subplots(figsize=(15, 12))
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=class_names)
+    disp.plot(cmap='Blues', ax=ax, colorbar=True)
+
+    plt.xticks(rotation=60, ha='right', fontsize=9)
+    plt.yticks(fontsize=9)
+    ax.set_title("Matrice di Confusione", fontsize=16)
+    plt.tight_layout()
+    plt.show()
+
+
+def multilabel_confusion_matrix_plot(csv_path, true_col, pred_col):
+    """
+    Legge un CSV con etichette multilabel (es: 'a, b'), calcola una matrice di confusione
+    aggregata dove ogni classe è trattata singolarmente, splittando combinazioni.
+    """
+    df = pd.read_csv(csv_path, keep_default_na=False)
+
+    # Splitta su virgole e rimuove spazi
+    y_true_lists = df[true_col].apply(lambda x: [s.strip() for s in x.split(',') if s.strip()])
+    y_pred_lists = df[pred_col].apply(lambda x: [s.strip() for s in x.split(',') if s.strip()])
+
+    # Ottieni tutte le classi uniche
+    all_labels = sorted(set(label for labels in y_true_lists.append(y_pred_lists) for label in labels))
+
+    # Binarizzazione multilabel
+    mlb = MultiLabelBinarizer(classes=all_labels)
+    y_true_bin = mlb.fit_transform(y_true_lists)
+    y_pred_bin = mlb.transform(y_pred_lists)
+
+    # Somma le confusion matrix individuali in una aggregata
+    cm_total = np.zeros((len(all_labels), len(all_labels)), dtype=int)
+
+    for i in range(len(y_true_bin)):
+        true_indices = np.where(y_true_bin[i] == 1)[0]
+        pred_indices = np.where(y_pred_bin[i] == 1)[0]
+
+        for t in true_indices:
+            for p in pred_indices:
+                cm_total[t][p] += 1
+
+    # Plot
+    fig, ax = plt.subplots(figsize=(14, 12))
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm_total, display_labels=all_labels)
+    disp.plot(cmap='Blues', ax=ax, colorbar=True)
+
+    plt.xticks(rotation=60, ha='right', fontsize=9)
+    plt.yticks(fontsize=9)
+    ax.set_title("Matrice di Confusione (Multilabel Flattened)", fontsize=16)
+    plt.tight_layout()
+    plt.show()
+
+
 ##################################################################################################################
 
 
 mutation_folder = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/mutants"
 sumo_results = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/sumo_results.csv"
 contracts_refactored_folder = '/Users/matteocicalese/PycharmProjects/MuSe/contracts_refactored'
+final_folder = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase'
+
 
 slither_results_original = '/Users/matteocicalese/results/slither-0.10.4/slither_original'
 slither_results_mutated = '/Users/matteocicalese/results/slither-0.10.4/slither_mutated'
@@ -800,12 +1037,19 @@ result_TD_unprocessed = '/Users/matteocicalese/PycharmProjects/MuSe/initial_phas
 result_TX_unprocessed = '/Users/matteocicalese/PycharmProjects/MuSe/initial_phase/results_TX.csv'
 result_CL_unprocessed = '/Users/matteocicalese/PycharmProjects/MuSe/initial_phase/results_CL.csv'
 
-jsonl_UR1 = '/Users/matteocicalese/PycharmProjects/MuSe/input_files/UR1.jsonl'
-jsonl_UR2 = '/Users/matteocicalese/PycharmProjects/MuSe/input_files/UR2.jsonl'
-jsonl_IUO1 = '/Users/matteocicalese/PycharmProjects/MuSe/input_files/IUO1.jsonl'
-jsonl_TD = '/Users/matteocicalese/PycharmProjects/MuSe/input_files/TD.jsonl'
-jsonl_TX = '/Users/matteocicalese/PycharmProjects/MuSe/input_files/TX.jsonl'
-jsonl_CL = '/Users/matteocicalese/PycharmProjects/MuSe/input_files/CL.jsonl'
+jsonl_positive_UR1 = '/Users/matteocicalese/PycharmProjects/MuSe/input_files/UR1_positive.jsonl'
+jsonl_positive_UR2 = '/Users/matteocicalese/PycharmProjects/MuSe/input_files/UR2_positive.jsonl'
+jsonl_positive_IUO1 = '/Users/matteocicalese/PycharmProjects/MuSe/input_files/IUO1_positive.jsonl'
+jsonl_positive_TD = '/Users/matteocicalese/PycharmProjects/MuSe/input_files/TD_positive.jsonl'
+jsonl_positive_TX = '/Users/matteocicalese/PycharmProjects/MuSe/input_files/TX_positive.jsonl'
+jsonl_positive_CL = '/Users/matteocicalese/PycharmProjects/MuSe/input_files/CL_positive.jsonl'
+
+jsonl_negative_UR1 = '/Users/matteocicalese/PycharmProjects/MuSe/input_files/UR1_negative.jsonl'
+jsonl_negative_UR2 = '/Users/matteocicalese/PycharmProjects/MuSe/input_files/UR2_negative.jsonl'
+jsonl_negative_IUO1 = '/Users/matteocicalese/PycharmProjects/MuSe/input_files/IUO1_negative.jsonl'
+jsonl_negative_TD = '/Users/matteocicalese/PycharmProjects/MuSe/input_files/TD_negative.jsonl'
+jsonl_negative_TX = '/Users/matteocicalese/PycharmProjects/MuSe/input_files/TX_negative.jsonl'
+jsonl_negative_CL = '/Users/matteocicalese/PycharmProjects/MuSe/input_files/CL_negative.jsonl'
 
 output_jsonl_UR1 = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase/results_UR1.jsonl'
 output_jsonl_UR2 = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase/results_UR2.jsonl'
@@ -820,6 +1064,8 @@ result_IUO1 = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase/results_IU
 result_TD = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase/results_TD.csv'
 result_TX = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase/results_TX.csv'
 result_CL = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase/results_CL.csv'
+result_total = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase/results.csv'
+
 
 
 ##################################################################################################################
@@ -827,23 +1073,41 @@ result_CL = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase/results_CL.c
 
 class ResultProcessing:
     def __init__(self):
+        # Extraction of function from original and mutated contracts
         extract_function_from_mutations_original_block(sumo_results, sumo_results_with_function_original)
         extract_function_from_mutations_hash_block(sumo_results_with_function_original, sumo_results_with_function_mutation, mutation_folder)
 
+        # Extraction of findings of original and mutated contracts from Slither analysis
         # extract_findings_original_ranged(slither_results_original, sumo_results_with_function_mutation, result_partial1, use_function_lines=True)
         extract_findings_ranged(slither_results_original, sumo_results_with_function_mutation, result_partial1, use_function_lines=True, mode=1)
         # extract_findings_mutated_ranged(slither_results_mutated, result_partial1, result_partial2, use_function_lines=True)
         extract_findings_ranged(slither_results_mutated, result_partial1, result_partial2, use_function_lines=True, mode=2)
 
+        # Differences processing
         process_findings_diff_single_csv(result_partial2, result_final)
 
+        # Failed mutation count
         count_analysis_failed_mismatches_by_operator(result_final)
 
+        # Adding oracle to csv
+        mapping = {
+            "UR1": "unused-return",
+            "UR2": "unused-return",
+            "IUO1": "integer-underflow-overflow",
+            "IUO2": "integer-underflow-overflow",
+            "TD": "timestamp/weak-prng",
+            "TX": "tx-origin",
+            "CL": "calls-loop",
+        }
+        add_oracle(result_final, mapping)
+
+        # Labels reorganization
         csv_beautifier(result_final)
 
 
 class DataCleaning:
     def __init__(self):
+        # Dropping failed cases and filtering clean functions
         drop_failed_cases(result_final)
 
         count_clean_functions(result_final)
@@ -853,20 +1117,25 @@ class DataCleaning:
 
 class OutputGeneration:
     def __init__(self):
+        # JSONL generator
         csv_to_jsonl(result_cleaned, jsonl_output_results)
 
+        # CSV splitting
         split_csv_by_operator(result_cleaned, min_rows=30)
 
 
-class FinalAnalysis:
-    def __init__(self):
-        update_csv_with_jsonl(result_UR1_unprocessed, jsonl_UR1, result_UR1)
-        update_csv_with_jsonl(result_UR2_unprocessed, jsonl_UR2, result_UR2)
-        update_csv_with_jsonl(result_IUO1_unprocessed, jsonl_IUO1, result_IUO1)
-        update_csv_with_jsonl(result_TD_unprocessed, jsonl_TD, result_TD)
-        update_csv_with_jsonl(result_TX_unprocessed, jsonl_TX, result_TX)
-        update_csv_with_jsonl(result_CL_unprocessed, jsonl_CL, result_CL)
 
+class FirstAnalysis:
+    def __init__(self):
+        # Update the csv with the JSONL containing GPT output
+        update_csv_with_jsonl(result_UR1_unprocessed, jsonl_positive_UR1, jsonl_negative_UR1, result_UR1)
+        update_csv_with_jsonl(result_UR2_unprocessed, jsonl_positive_UR2, jsonl_negative_UR2, result_UR2)
+        update_csv_with_jsonl(result_IUO1_unprocessed, jsonl_positive_IUO1, jsonl_negative_IUO1, result_IUO1)
+        update_csv_with_jsonl(result_TD_unprocessed, jsonl_positive_TD, jsonl_negative_TD, result_TD)
+        update_csv_with_jsonl(result_TX_unprocessed, jsonl_positive_TX, jsonl_negative_TX, result_TX)
+        update_csv_with_jsonl(result_CL_unprocessed, jsonl_positive_CL, jsonl_negative_CL, result_CL)
+
+        # Process the new function, produce the refactored contract, and adds the refactored function in the csv
         refactor_functions_from_csv(result_UR1, mutation_folder, contracts_refactored_folder)
         refactor_functions_from_csv(result_UR2, mutation_folder, contracts_refactored_folder)
         refactor_functions_from_csv(result_IUO1, mutation_folder, contracts_refactored_folder)
@@ -874,6 +1143,7 @@ class FinalAnalysis:
         refactor_functions_from_csv(result_TX, mutation_folder, contracts_refactored_folder)
         refactor_functions_from_csv(result_CL, mutation_folder, contracts_refactored_folder)
 
+        # Extract the findings from the refactored contracts
         extract_findings_ranged(slither_results_refactored, result_UR1, result_UR1, mode=3)
         extract_findings_ranged(slither_results_refactored, result_UR2, result_UR2, mode=3)
         extract_findings_ranged(slither_results_refactored, result_IUO1, result_IUO1, mode=3)
@@ -881,6 +1151,7 @@ class FinalAnalysis:
         extract_findings_ranged(slither_results_refactored, result_TX, result_TX, mode=3)
         extract_findings_ranged(slither_results_refactored, result_CL, result_CL, mode=3)
 
+        # Converts the enhanced CSVs in JSONL
         csv_to_jsonl(result_UR1, output_jsonl_UR1)
         csv_to_jsonl(result_UR2, output_jsonl_UR2)
         csv_to_jsonl(result_IUO1, output_jsonl_IUO1)
@@ -889,9 +1160,41 @@ class FinalAnalysis:
         csv_to_jsonl(result_CL, output_jsonl_CL)
 
 
+class SecondAnalysis:
+    def __init__(self):
+        # Merges the CSVs
+        merge_csv_in_folder(final_folder, result_total)
+
+        # Add the oracle for the original and mutated findings
+        add_original_oracle(result_total)
+
+        # Align Slither and GPT findings
+        mapping = {
+            "['none']": "none",
+            "['Unused return']": "unused-return",
+            "['divide-before-multiply']": "integer-underflow-overflow",
+            "['Block timestamp']": "timestamp/weak-prng",
+            "['Dangerous usage of tx.origin']": "tx-origin",
+            "['Calls inside a loop']": "calls-loop",
+            "['Unchecked transfer']": "unchecked-transfer",
+            "['Contracts that lock Ether']": "locked-ether",
+            "['Unused return', 'divide-before-multiply']": "unused-return, integer-underflow-overflow",
+            "['Calls inside a loop', 'Unchecked transfer']": "calls-loop, unchecked-transfer",
+            "['Dangerous usage of tx.origin', 'Unchecked transfer']": "tx-origin, unchecked-transfer",
+            "['Unused return', 'Calls inside a loop']": "unused-return, calls-loop",
+        }
+        align_findings(result_total, "FindingsOriginalLLM", mapping)
+        align_findings(result_total, "FindingsMutatedLLM", mapping)
+
+        # Produces multiclass confusion matrix
+        #multilabel_confusion_matrix_plot(result_total, "FindingsMutatedOracle", "FindingsMutatedLLM")
+        confusion_matrix_generation(result_total, "FindingsMutatedOracle", "FindingsMutatedLLM")
+        confusion_matrix_generation(result_total, "FindingsOriginalOracle", "FindingsOriginalLLM")
 
 
-ResultProcessing()
-DataCleaning()
-OutputGeneration()
-FinalAnalysis()
+
+#ResultProcessing()
+#DataCleaning()
+#OutputGeneration()
+FirstAnalysis()
+SecondAnalysis()
