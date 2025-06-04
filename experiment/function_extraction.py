@@ -472,7 +472,7 @@ def process_findings_diff_single_csv(input_csv, output_csv):
 def add_oracle(input_file: str, mapping: Dict[str, str]) -> None:
     """
     Legge un file CSV, controlla la colonna 'Operator' rispetto a un mapping fornito,
-    e aggiunge/modifica la colonna 'FindingsMutatedOracle' subito dopo 'FindingsMutated',
+    e aggiunge/modifica la colonna 'FindingsMutatedOracle' subito dopo 'FindingsMutatedSlither',
     sovrascrivendo il file di input.
 
     :param input_file: Percorso del file CSV da modificare.
@@ -489,7 +489,7 @@ def add_oracle(input_file: str, mapping: Dict[str, str]) -> None:
         if "findings_mutated" not in fieldnames or "operator" not in fieldnames:
             raise ValueError("Il file CSV deve contenere le colonne 'findings_mutated' e 'operator'.")
 
-        # Inserisci la nuova colonna subito dopo 'FindingsMutated'
+        # Inserisci la nuova colonna subito dopo 'FindingsMutatedSlither'
         if "FindingsMutatedOracle" in fieldnames:
             fieldnames.remove("FindingsMutatedOracle")
         idx = fieldnames.index("findings_mutated") + 1
@@ -532,8 +532,8 @@ def csv_beautifier(input_file: str):
         "extractedfunctionmutation": "FunctionMutation",
         "startlinefunction": "StartLineFunction",
         "endlinefunction": "EndLineFunction",
-        "findings_original": "FindingsOriginal",
-        "findings_mutated": "FindingsMutated",
+        "findings_original": "FindingsOriginalSlither",
+        "findings_mutated": "FindingsMutatedSlither",
         "differences": "Differences"
     })
 
@@ -545,7 +545,7 @@ def csv_beautifier(input_file: str):
     final_columns = [
         "ContractOriginal", "ContractMutated", "Operator", "Original", "Replacement",
         "StartLineMutation", "EndLineMutation", "FunctionOriginal", "FunctionMutation",
-        "StartLineFunction", "EndLineFunction", "FindingsOriginal", "FindingsMutated",
+        "StartLineFunction", "EndLineFunction", "FindingsOriginalSlither", "FindingsMutatedSlither",
         "FindingsMutatedOracle", "Differences"
     ]
     df = df[[col for col in final_columns if col in df.columns]]
@@ -580,8 +580,8 @@ def count_analysis_failed_mismatches_by_operator(csv_path):
 def drop_failed_cases(file_path: str) -> None:
     """
     Filtra un CSV eliminando le righe in cui:
-    - FindingsMutated == 'Analysis Failed'
-    - FindingsOriginal != 'Analysis Failed'
+    - FindingsMutatedSlither == 'Analysis Failed'
+    - FindingsOriginalSlither != 'Analysis Failed'
 
     Sovrascrive il file originale con i dati filtrati.
     """
@@ -589,8 +589,8 @@ def drop_failed_cases(file_path: str) -> None:
     df = pd.read_csv(file_path)
 
     # Applica il filtro
-    filtered_df = df[~((df['FindingsMutated'] == 'Analysis failed') &
-                       (df['FindingsOriginal'] != 'Analysis failed'))]
+    filtered_df = df[~((df['FindingsMutatedSlither'] == 'Analysis failed') &
+                       (df['FindingsOriginalSlither'] != 'Analysis failed'))]
 
     # Sovrascrive il file con i dati filtrati
     filtered_df.to_csv(file_path, index=False)
@@ -599,7 +599,7 @@ def drop_failed_cases(file_path: str) -> None:
 
 def count_clean_functions(csv_path):
     """
-    Conta e stampa quante volte il valore '{}' appare nella colonna 'FindingsOriginal' di un file CSV,
+    Conta e stampa quante volte il valore '{}' appare nella colonna 'FindingsOriginalSlither' di un file CSV,
     e stampa anche il numero di occorrenze per ciascun valore unico della colonna 'Operator'.
 
     Args:
@@ -608,12 +608,12 @@ def count_clean_functions(csv_path):
     try:
         df = pd.read_csv(csv_path)
 
-        if "FindingsOriginal" not in df.columns:
-            raise ValueError("La colonna 'FindingsOriginal' non è presente nel file CSV.")
+        if "FindingsOriginalSlither" not in df.columns:
+            raise ValueError("La colonna 'FindingsOriginalSlither' non è presente nel file CSV.")
         if "Operator" not in df.columns:
             raise ValueError("La colonna 'Operator' non è presente nel file CSV.")
 
-        filtered_df = df[df["FindingsOriginal"] == "{}"]
+        filtered_df = df[df["FindingsOriginalSlither"] == "{}"]
         total_count = len(filtered_df)
         print(f"\nTotale funzioni pulite: {total_count}")
 
@@ -629,7 +629,7 @@ def count_clean_functions(csv_path):
 
 def filter_by_clean_functions(input_file, output_file):
     """
-    Filtra le righe di un CSV in cui la colonna 'FindingsOriginal' ha valore '{}'.
+    Filtra le righe di un CSV in cui la colonna 'FindingsOriginalSlither' ha valore '{}'.
 
     Args:
         input_file (str): Percorso del file CSV di input.
@@ -643,7 +643,7 @@ def filter_by_clean_functions(input_file, output_file):
 
         writer.writeheader()
         for row in reader:
-            if row.get("FindingsOriginal") == "{}":
+            if row.get("FindingsOriginalSlither") == "{}":
                 writer.writerow(row)
 
 
@@ -740,7 +740,7 @@ def update_csv_with_jsonl(csv_path, jsonl_mutated_path, jsonl_original_path, out
 
     # Inserisci la colonna FindingsOriginalLLM prima di FindingsMutatedLLM
     df.insert(
-        df.columns.get_loc("FindingsMutated"),
+        df.columns.get_loc("FindingsMutatedSlither"),
         "FindingsOriginalLLM",
         df["ContractMutated"].map(original_data)
     )
@@ -752,7 +752,7 @@ def update_csv_with_jsonl(csv_path, jsonl_mutated_path, jsonl_original_path, out
         df["ContractMutated"].map({k: v["FunctionRefactored"] for k, v in mutated_data.items()})
     )
 
-    # Inserisci FindingsMutatedLLM subito dopo FindingsMutated
+    # Inserisci FindingsMutatedLLM subito dopo FindingsMutatedSlither
     df.insert(
         df.columns.get_loc("FindingsMutatedOracle") + 1,
         "FindingsMutatedLLM",
@@ -872,20 +872,20 @@ def merge_csv_in_folder(folder_path, output_file):
 
 def add_original_oracle(file_path):
     """
-    Aggiunge una colonna 'FindingsOriginalOracle' dopo 'FindingsOriginal' con valore 'none'
+    Aggiunge una colonna 'FindingsOriginalOracle' dopo 'FindingsOriginalSlither' con valore 'none'
     e sovrascrive il file CSV originale.
 
     :param file_path: percorso del file CSV da modificare
     """
     # Legge il file CSV
-    df = pd.read_csv(file_path)
+    df = pd.read_csv(file_path, keep_default_na=False)
 
     # Verifica che la colonna esista
-    if "FindingsOriginal" not in df.columns:
-        raise ValueError("La colonna 'FindingsOriginal' non è presente nel file.")
+    if "FindingsOriginalSlither" not in df.columns:
+        raise ValueError("La colonna 'FindingsOriginalSlither' non è presente nel file.")
 
-    # Trova la posizione di 'FindingsOriginal'
-    col_index = df.columns.get_loc("FindingsOriginal")
+    # Trova la posizione di 'FindingsOriginalSlither'
+    col_index = df.columns.get_loc("FindingsOriginalSlither")
 
     # Inserisce la nuova colonna con valore "none"
     df.insert(col_index + 1, "FindingsOriginalOracle", "none")
@@ -916,7 +916,7 @@ def align_findings(csv_path, column_name, mapping):
         mapping (dict): Dizionario di sostituzione {valore_vecchio: valore_nuovo}.
 
     """
-    df = pd.read_csv(csv_path)
+    df = pd.read_csv(csv_path, keep_default_na=False)
 
     if column_name not in df.columns:
         raise ValueError(f"La colonna '{column_name}' non esiste nel CSV.")
@@ -964,44 +964,54 @@ def confusion_matrix_generation(csv_path, true_col, pred_col, class_names=None):
     plt.show()
 
 
-def multilabel_confusion_matrix_plot(csv_path, true_col, pred_col):
+def confusion_matrix_generation_v2(csv_path, true_col, pred_col, class_names=None, sep=","):
     """
-    Legge un CSV con etichette multilabel (es: 'a, b'), calcola una matrice di confusione
-    aggregata dove ogni classe è trattata singolarmente, splittando combinazioni.
+    Legge un CSV, espande le righe con label predette multiple (separate da virgole),
+    e mostra la matrice di confusione multiclasse.
+
+    Args:
+        csv_path (str): Percorso al file CSV.
+        true_col (str): Nome colonna etichette vere.
+        pred_col (str): Nome colonna etichette predette (può avere etichette multiple).
+        class_names (list, optional): Lista ordinata delle classi da visualizzare.
+        sep (str, optional): Separatore delle etichette multiple (default: ',').
     """
     df = pd.read_csv(csv_path, keep_default_na=False)
+    expanded_rows = []
 
-    # Splitta su virgole e rimuove spazi
-    y_true_lists = df[true_col].apply(lambda x: [s.strip() for s in x.split(',') if s.strip()])
-    y_pred_lists = df[pred_col].apply(lambda x: [s.strip() for s in x.split(',') if s.strip()])
+    for _, row in df.iterrows():
+        true_label = row[true_col]
+        pred_labels = [lbl.strip() for lbl in row[pred_col].split(sep)]
 
-    # Ottieni tutte le classi uniche
-    all_labels = sorted(set(label for labels in y_true_lists.append(y_pred_lists) for label in labels))
+        for pred_label in pred_labels:
+            new_row = row.copy()
+            new_row[true_col] = true_label
+            new_row[pred_col] = pred_label
+            expanded_rows.append(new_row)
 
-    # Binarizzazione multilabel
-    mlb = MultiLabelBinarizer(classes=all_labels)
-    y_true_bin = mlb.fit_transform(y_true_lists)
-    y_pred_bin = mlb.transform(y_pred_lists)
+    df_expanded = pd.DataFrame(expanded_rows)
+    y_true = df_expanded[true_col]
+    y_pred = df_expanded[pred_col]
 
-    # Somma le confusion matrix individuali in una aggregata
-    cm_total = np.zeros((len(all_labels), len(all_labels)), dtype=int)
+    if class_names is None:
+        class_names = sorted(set(y_true) | set(y_pred))
 
-    for i in range(len(y_true_bin)):
-        true_indices = np.where(y_true_bin[i] == 1)[0]
-        pred_indices = np.where(y_pred_bin[i] == 1)[0]
+    if 'none' in class_names:
+        class_names = [cls for cls in class_names if cls != 'none']
+        class_names.sort(key=len)
+        class_names.append('none')
+    else:
+        class_names.sort(key=len)
 
-        for t in true_indices:
-            for p in pred_indices:
-                cm_total[t][p] += 1
+    cm = confusion_matrix(y_true, y_pred, labels=class_names)
 
-    # Plot
-    fig, ax = plt.subplots(figsize=(14, 12))
-    disp = ConfusionMatrixDisplay(confusion_matrix=cm_total, display_labels=all_labels)
+    fig, ax = plt.subplots(figsize=(15, 12))
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=class_names)
     disp.plot(cmap='Blues', ax=ax, colorbar=True)
 
     plt.xticks(rotation=60, ha='right', fontsize=9)
     plt.yticks(fontsize=9)
-    ax.set_title("Matrice di Confusione (Multilabel Flattened)", fontsize=16)
+    ax.set_title("Matrice di Confusione", fontsize=16)
     plt.tight_layout()
     plt.show()
 
@@ -1187,7 +1197,7 @@ class SecondAnalysis:
         align_findings(result_total, "FindingsMutatedLLM", mapping)
 
         # Produces multiclass confusion matrix
-        #multilabel_confusion_matrix_plot(result_total, "FindingsMutatedOracle", "FindingsMutatedLLM")
+        #confusion_matrix_generation_v2(result_total, "FindingsMutatedOracle", "FindingsMutatedLLM")
         confusion_matrix_generation(result_total, "FindingsMutatedOracle", "FindingsMutatedLLM")
         confusion_matrix_generation(result_total, "FindingsOriginalOracle", "FindingsOriginalLLM")
 
