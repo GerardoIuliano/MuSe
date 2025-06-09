@@ -1,6 +1,7 @@
 import json
 import csv
 import os
+import random
 import re
 import shutil
 import tarfile
@@ -927,10 +928,17 @@ def align_findings(csv_path, column_name, mapping):
     df.to_csv(csv_path, index=False)
 
 
-def confusion_matrix_generation(csv_path, true_col, pred_col, class_names=None):
+def confusion_matrix_generation(csv_path, true_col, pred_col, class_names=None, plot_title="Matrice di Confusione"):
     """
     Legge un CSV, estrae le colonne dei valori veri e predetti,
     e mostra la matrice di confusione multiclasse con migliore leggibilità.
+
+    Parametri:
+    - csv_path: percorso al file CSV
+    - true_col: nome della colonna con le etichette vere
+    - pred_col: nome della colonna con le etichette predette
+    - class_names: lista opzionale di nomi delle classi
+    - plot_title: titolo da visualizzare nel grafico
     """
     # Leggi il file CSV
     df = pd.read_csv(csv_path, keep_default_na=False)
@@ -959,12 +967,12 @@ def confusion_matrix_generation(csv_path, true_col, pred_col, class_names=None):
 
     plt.xticks(rotation=60, ha='right', fontsize=9)
     plt.yticks(fontsize=9)
-    ax.set_title("Matrice di Confusione", fontsize=16)
+    ax.set_title(plot_title, fontsize=16)
     plt.tight_layout()
     plt.show()
 
 
-def confusion_matrix_generation_v2(csv_path, true_col, pred_col, class_names=None, sep=","):
+def confusion_matrix_generation_v2(csv_path, true_col, pred_col, class_names=None, sep=",", plot_title="Matrice di Confusione"):
     """
     Legge un CSV, espande le righe con label predette multiple (separate da virgole),
     e mostra la matrice di confusione multiclasse.
@@ -975,6 +983,7 @@ def confusion_matrix_generation_v2(csv_path, true_col, pred_col, class_names=Non
         pred_col (str): Nome colonna etichette predette (può avere etichette multiple).
         class_names (list, optional): Lista ordinata delle classi da visualizzare.
         sep (str, optional): Separatore delle etichette multiple (default: ',').
+        plot_title (str, optional): Titolo del grafico (default: 'Matrice di Confusione').
     """
     df = pd.read_csv(csv_path, keep_default_na=False)
     expanded_rows = []
@@ -1011,9 +1020,10 @@ def confusion_matrix_generation_v2(csv_path, true_col, pred_col, class_names=Non
 
     plt.xticks(rotation=60, ha='right', fontsize=9)
     plt.yticks(fontsize=9)
-    ax.set_title("Matrice di Confusione", fontsize=16)
+    ax.set_title(plot_title, fontsize=16)
     plt.tight_layout()
     plt.show()
+
 
 
 ##################################################################################################################
@@ -1021,10 +1031,12 @@ def confusion_matrix_generation_v2(csv_path, true_col, pred_col, class_names=Non
 
 mutation_folder = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/mutants"
 sumo_results = "/Users/matteocicalese/PycharmProjects/MuSe/sumo/results/sumo_results.csv"
+contracts_folder = '/Users/matteocicalese/PycharmProjects/MuSe/contracts'
 contracts_refactored_folder = '/Users/matteocicalese/PycharmProjects/MuSe/contracts_refactored'
 final_folder = '/Users/matteocicalese/PycharmProjects/MuSe/final_phase'
 
-
+#slither_results_original = '/Users/matteocicalese/results/slither-0.10.4/slither_original_gerry'
+#slither_results_mutated = '/Users/matteocicalese/results/slither-0.10.4/slither_mutated_gerry'
 slither_results_original = '/Users/matteocicalese/results/slither-0.10.4/slither_original'
 slither_results_mutated = '/Users/matteocicalese/results/slither-0.10.4/slither_mutated'
 slither_results_refactored = '/Users/matteocicalese/results/slither-0.10.4/slither_refactored'
@@ -1108,6 +1120,10 @@ class ResultProcessing:
             "TD": "timestamp/weak-prng",
             "TX": "tx-origin",
             "CL": "calls-loop",
+            "USD": "unprotected-selfdestruct",
+            "UC": "unchecked-call",
+            "US": "unchecked-send",
+            "UTR": "unchecked-transfer",
         }
         add_oracle(result_final, mapping)
 
@@ -1197,14 +1213,14 @@ class SecondAnalysis:
         align_findings(result_total, "FindingsMutatedLLM", mapping)
 
         # Produces multiclass confusion matrix
-        #confusion_matrix_generation_v2(result_total, "FindingsMutatedOracle", "FindingsMutatedLLM")
-        confusion_matrix_generation(result_total, "FindingsMutatedOracle", "FindingsMutatedLLM")
-        confusion_matrix_generation(result_total, "FindingsOriginalOracle", "FindingsOriginalLLM")
+        confusion_matrix_generation_v2(result_total, "FindingsMutatedOracle", "FindingsMutatedLLM", plot_title="Multiclass Confusion Matrix - Mutated Contracts")
+        #confusion_matrix_generation(result_total, "FindingsMutatedOracle", "FindingsMutatedLLM")
+        confusion_matrix_generation(result_total, "FindingsOriginalOracle", "FindingsOriginalLLM", plot_title="Multiclass Confusion Matrix - Original Contracts")
 
 
 
 #ResultProcessing()
 #DataCleaning()
 #OutputGeneration()
-FirstAnalysis()
+#FirstAnalysis()
 SecondAnalysis()
