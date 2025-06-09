@@ -7,89 +7,210 @@ function REOperator() {
 
 REOperator.prototype.getMutations = function(file, source, visit) {
   const mutations = [];
-  const mappings = new Set(); // Memorizza i mapping dichiarati nel contratto
+  const mappings = new Set();
 
-  // Identifica le dichiarazioni di mapping per tenere traccia delle variabili di tipo mapping
   visit({
     StateVariableDeclaration: (node) => {
       node.variables.forEach((variable) => {
-        if (variable.typeName.type === "Mapping" &&
-            variable.typeName.keyType.name === "address" &&
-            variable.typeName.valueType.name &&
-            variable.typeName.valueType.name.includes("uint")
-        ){
-              mappings.add(variable.name); // Aggiungi il nome della variabile mapping
+        if (
+          variable.typeName.type === "Mapping" &&
+          variable.typeName.keyType.name === "address" &&
+          variable.typeName.valueType.name &&
+          (variable.typeName.valueType.name.includes("uint") ||
+            variable.typeName.valueType.name.includes("bool"))
+        ) {
+          mappings.add(variable.name);
         }
       });
     }
   });
 
-  // Helper per identificare l'assegnazione a un mapping, es. balances[msg.sender] = <valore>;
   function isMappingAssignment(stmt) {
-    if (stmt.type !== "ExpressionStatement" || stmt.expression.type !== "BinaryOperation" || stmt.expression.operator === "+=") return false;
+    if (
+      stmt.type !== "ExpressionStatement" ||
+      stmt.expression.type !== "BinaryOperation" ||
+      stmt.expression.operator === "+="
+    ) return false;
 
     const left = stmt.expression.left;
     const right = stmt.expression.right;
 
-    isAddition = right.type === "BinaryOperation" && right.operator === "+";
-    //console.log(mappings.has(left.base.name))
+    const isAddition = right.type === "BinaryOperation" && right.operator === "+";
 
-    // Verifica che l'accesso sia del tipo mapping[msg.sender] e che la variabile sia un mapping
-    return left.type === "IndexAccess" &&
-           left.index &&
-           left.index.type === "MemberAccess" &&
-           left.index.memberName === "sender" &&
-           mappings.has(left.base.name) && // Verifica che la variabile sia un mapping dichiarato
-           !isAddition;
+    return (
+      left.type === "IndexAccess" &&
+      left.index &&
+      left.index.type === "MemberAccess" &&
+      left.index.memberName === "sender" &&
+      mappings.has(left.base.name) &&
+      !isAddition
+    );
   }
 
-  // Helper per identificare la chiamata esterna, es. msg.sender.call(...);
-  function isExternalCall(stmt) {
-    if (stmt.type !== "VariableDeclarationStatement" || stmt.initialValue.type !== "FunctionCall") return false;
-    const callExpr = stmt.initialValue.expression.expression;
+function isExternalCall(stmt) {
+  // Case 1: VariableDeclarationStatement con FunctionCall (anche tuple)
+  if (
+    stmt.type === "VariableDeclarationStatement" &&
+    stmt.initialValue &&
+    stmt.initialValue.type === "FunctionCall"
+  ) {
+    const expr = stmt.initialValue.expression;
 
-    return callExpr &&
-           callExpr.type === "MemberAccess" &&
-           ((callExpr.memberName === "call" &&
-           callExpr.expression &&
-           callExpr.expression.memberName === "sender") ||
-           (callExpr.expression.memberName === "call" &&
-           callExpr.expression.expression &&
-           callExpr.expression.expression.memberName === "sender"));
+    // Modern case con named args
+    if (
+      expr.type === "NameValueExpression" &&
+      expr.expression &&
+      expr.expression.type === "MemberAccess" &&
+      expr.expression.memberName === "call" &&
+      expr.expression.expression &&
+      expr.expression.expression.type === "MemberAccess" &&
+      expr.expression.expression.memberName === "sender"
+    ) {
+      return true;
+    }
+
+    // Caso classico .call.value(...)
+    if (
+      expr.type === "FunctionCall" &&
+      expr.expression &&
+      expr.expression.type === "MemberAccess" &&
+      expr.expression.memberName === "value" &&
+      expr.expression.expression &&
+      expr.expression.expression.type === "MemberAccess" &&
+      expr.expression.expression.memberName === "call" &&
+      expr.expression.expression.expression &&
+      expr.expression.expression.expression.type === "MemberAccess" &&
+      expr.expression.expression.expression.memberName === "sender"
+    ) {
+      return true;
+    }
+
+    // Classic call directly (e.g., msg.sender.call(...))
+    if (
+      expr.type === "MemberAccess" &&
+      expr.memberName === "call" &&
+      expr.expression &&
+      expr.expression.type === "MemberAccess" &&
+      expr.expression.memberName === "sender"
+    ) {
+      return true;
+    }
+  }
+
+  // Case 2: ExpressionStatement con FunctionCall (senza lvalue)
+  if (
+    stmt.type === "ExpressionStatement" &&
+    stmt.expression &&
+    stmt.expression.type === "FunctionCall"
+  ) {
+    const expr = stmt.expression.expression;
+
+    // Named args
+    if (
+      expr.type === "NameValueExpression" &&
+      expr.expression &&
+      expr.expression.type === "MemberAccess" &&
+      expr.expression.memberName === "call" &&
+      expr.expression.expression &&
+      expr.expression.expression.type === "MemberAccess" &&
+      expr.expression.expression.memberName === "sender"
+    ) {
+      return true;
+    }
+
+    // .call(...)
+    if (
+      expr.type === "MemberAccess" &&
+      expr.memberName === "call" &&
+      expr.expression &&
+      expr.expression.type === "MemberAccess" &&
+      expr.expression.memberName === "sender"
+    ) {
+      return true;
+    }
+
+    // .call.value(...)
+    if (
+      expr.type === "FunctionCall" &&
+      expr.expression &&
+      expr.expression.type === "MemberAccess" &&
+      expr.expression.memberName === "value" &&
+      expr.expression.expression &&
+      expr.expression.expression.type === "MemberAccess" &&
+      expr.expression.expression.memberName === "call" &&
+      expr.expression.expression.expression &&
+      expr.expression.expression.expression.type === "MemberAccess" &&
+      expr.expression.expression.expression.memberName === "sender"
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+  function findRelevantStatements(statements) {
+    let assignmentStmt = null;
+    let callStmt = null;
+
+    function recurse(stmts) {
+      for (const stmt of stmts) {
+        if (!assignmentStmt && isMappingAssignment(stmt)) {
+          assignmentStmt = stmt;
+        }
+
+        if (assignmentStmt && !callStmt && isExternalCall(stmt)) {
+          callStmt = stmt;
+        }
+
+        if (stmt.type === "IfStatement") {
+          if (stmt.trueBody && stmt.trueBody.statements) {
+            recurse(stmt.trueBody.statements);
+          }
+          if (stmt.falseBody && stmt.falseBody.statements) {
+            recurse(stmt.falseBody.statements);
+          }
+        } else if (stmt.type === "Block" && stmt.statements) {
+          recurse(stmt.statements);
+        }
+
+        if (assignmentStmt && callStmt) return;
+      }
+    }
+
+    recurse(statements);
+    return { assignmentStmt, callStmt };
   }
 
   visit({
     FunctionDefinition: (node) => {
       if (!node.body || !node.body.statements) return;
 
-      let assignmentStmt = null;
-      let callStmt = null;
-      let assignmentIndex = null;
+      const { assignmentStmt, callStmt } = findRelevantStatements(node.body.statements);
 
-      node.body.statements.forEach((stmt, index) => {
-        if (isMappingAssignment(stmt)) {
-          assignmentStmt = stmt;
-          assignmentIndex = index;
-        }
-        if (assignmentStmt && !callStmt && isExternalCall(stmt)) {
-          callStmt = stmt;
-        }
-      });
-
-      if (assignmentStmt && callStmt && assignmentIndex !== null) {
+      if (assignmentStmt && callStmt) {
         const mutationStart = assignmentStmt.range[0];
         const mutationEnd = callStmt.range[1] + 1;
 
         const assignmentCode = source.slice(assignmentStmt.range[0], assignmentStmt.range[1] + 1);
         const callCode = source.slice(callStmt.range[0], callStmt.range[1] + 1);
 
-        // Genera il codice mutato: sposta l'aggiornamento dello stato dopo la chiamata esterna
-        const mutatedCode = callCode + "\n" + assignmentCode;
         const startLine = assignmentStmt.loc.start.line;
         const endLine = callStmt.loc.end.line;
 
+        const mutatedCode = callCode + "\n" + assignmentCode;
+
         mutations.push(
-          new Mutation(file, mutationStart, mutationEnd, startLine, endLine, source.slice(mutationStart, mutationEnd), mutatedCode, this.ID)
+          new Mutation(
+            file,
+            mutationStart,
+            mutationEnd,
+            startLine,
+            endLine,
+            source.slice(mutationStart, mutationEnd),
+            mutatedCode,
+            this.ID
+          )
         );
       }
     }
