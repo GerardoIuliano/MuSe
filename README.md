@@ -16,7 +16,7 @@ MuSe is based on a mutation testing tool called [SuMo](https://github.com/Morena
 
 
 
-# Installation
+# Installation ↔
 
 To install sumo run ```npm install @geriul/sumo```
 
@@ -50,7 +50,7 @@ These (optional) fields identify relevant project directories.
  | ```buildDir```| relative path to the directory of the compilation artifacts | ```build```/```out```/```artifacts``` |  |  
 
 
-# CLI Usage
+# CLI Usage 💻
 
 ## Selecting the Mutation Operators
 
@@ -78,7 +78,7 @@ MuSe automatically creates a ```sumo\results``` folder in the root directory of 
 * ```\mutants``` Mutated ```.sol``` contracts generated with ```sumo mutate```
 
 
-# Quickstart
+# Quickstart ✅
 Default folders creation run (in root folder):
 ```bash
 mkdir -p contracts tests build
@@ -116,7 +116,7 @@ MuSe includes currently 11 mutation operators.
 | RE       | Reentrancy                                 | ```function withdraw(uint256 amount) public { balances[msg.sender] -= amount; (bool success, ) = msg.sender.call{value: amount}(""); }``` &rarr; ```function withdraw(uint256 amount) public { (bool success, ) = msg.sender.call{value: amount}(""); balances[msg.sender] -= amount; }``` |
 
 
-# Publications
+# Publications 📖
 
     @article{iuliano2025automated,
       title={Automated Vulnerability Injection in Solidity Smart Contracts: A Mutation-Based Approach for Benchmark Development},
