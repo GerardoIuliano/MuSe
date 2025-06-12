@@ -16,7 +16,7 @@ MuSe is based on a mutation testing tool called [SuMo](https://github.com/Morena
 
 
 
-# Installation ↔
+# Installation 🔌
 
 To install sumo run ```npm install @geriul/sumo```
 

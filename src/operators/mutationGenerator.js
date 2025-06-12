@@ -106,7 +106,6 @@ const REOperator = require('./MuSe/reentrancy')
 const IUOOperator = require('./MuSe/integer-underflow-overflow')
 const USDOperator = require('./MuSe/unprotected-selfdestruct')
 const LEOperator = require('./MuSe/locking-ether')
-const UR3Operator = require('./MuSe/unused-return-3')
 
 
 
@@ -299,6 +298,5 @@ module.exports = {
   REOperator: REOperator,
   IUOOperator: IUOOperator,
   USDOperator: USDOperator,
-  LEOperator: LEOperator,
-  UR3Operator: UR3Operator
+  LEOperator: LEOperator
 }
