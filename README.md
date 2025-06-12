@@ -72,9 +72,9 @@ Before starting the mutation process you can choose which mutation operators to 
 
 ## Viewing the results
 MuSe automatically creates a ```sumo\results``` folder in the root directory of the project with the following reports: <br/>
-* ```operators.xlsx``` Results of the mutation testing process grouped by operator
-* ```results.csv``` Results of the mutation testing process for each mutant. This synchronous log is updated each time a mutant is assigned a status
+* ```results.csv``` Results of the mutation testing process for each mutant in csv format
 * ```sumo-log.txt``` Logs info about the mutation testing process
+* ```mutations.json``` Results of the mutation testing process for each mutant in json format
 * ```\mutants``` Mutated ```.sol``` contracts generated with ```sumo mutate```
 
 
@@ -92,33 +92,28 @@ Mutating contracts:
 npx sumo mutate
 ```
 
+##
+
 
 # Mutation Operators 👾
 
-SuMo includes currently 25 Solidity-specific operators and 19 Traditional operators.
-
-## Minimal Mutation Rules
-Some mutation operators foresee a **minimal** version:
-* The **extended** operators are composed of mutation rules capable of generating a more comprehensive collection of mutants. These operators guarantee higher reliability at the price of a more expensive and time-consuming mutation testing process.
-* The **minimal** operators consist of simplified rules that aim to limit the generation of likely subsumed mutants and speed up the testing process.
-
-By default, SuMo employs the **extended** operators. However, you can enable the minimal rules from the ```sumo-config.js``` file.
+MuSe includes currently 11 mutation operators.
 
 ## Vulnerability Mutation Operators
 
-| Operator | Name                                       | Mutation Example                                                                                                                                                                                                                                                                       |  Minimal version available |
-|----------|--------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------| :----: |
-| UC       | Unchecked low-level call return value      | ```require(address.call())``` &rarr; ```address.call()```                                                                                                                                                                                                                              |  N |
-| US       | Unchecked send                             | ```require(address.send())``` &rarr; ```address.send()```                                                                                                                                                                                                                              |  N |
-| UTR      | Unchecked transfer                         | ```require(address.transfer())``` &rarr; ```address.transfer()```                                                                                                                                                                                                                      |  N |
-| TX       | Authentication through tx.origin           | ```owner == msg.sender```     &rarr; ```owner == tx.origin```                                                                                                                                                                                                                          |  N |
-| DTU      | Delegatecall to untrusted callee           | ```address.delegatecall()``` &rarr; ```function setDelegate(address _addr){addr = _addr} addr.delegatecall()```                                                                                                                                                                        |  N |
-| UR1      | Unused return (Assignment)                 | ```_totalSupply = _totalSupply.sub(amount)``` &rarr; ```_totalSupply = 0; _totalSupply.sub(amount)```                                                                                                                                                                                  |  N |
-| UR2      | Unused return (Initialization + Assignment)| ```uint length = data.decodeU32()``` &rarr; ```uint length = data.decodeU32()```                                                                                                                                                                                                       |  N |
-| TD       | Timestamp dependence                       | ```block.number``` &rarr; ```block.timestamp```                                                                                                                                                                                                                                        |  N |
-| IUO      | Integer underflow/overflow                 | ```totalSupply = totalSupply.add(amount)``` &rarr; ```totalSupply = (totalSupply + amount)```                                                                                                                                                                                          |  N |
-| USD      | Unprotected self-destruct                  | ```function destroy() private { selfdestruct(payable(owner)); }``` &rarr; ```function destroy() public { selfdestruct(payable(owner)); }```                                                                                                                                            |  N |
-| RE       | Reentrancy                                 | ```function withdraw(uint256 amount) public { balances[msg.sender] -= amount; (bool success, ) = msg.sender.call{value: amount}(""); }``` &rarr; ```function withdraw(uint256 amount) public { (bool success, ) = msg.sender.call{value: amount}(""); balances[msg.sender] -= amount; }``` |  N |
+| Operator | Name                                       | Mutation Example                                                                                                                                                                                                                                                                       |
+|----------|--------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| UC       | Unchecked low-level call return value      | ```require(address.call())``` &rarr; ```address.call()```                                                                                                                                                                                                                              |
+| US       | Unchecked send                             | ```require(address.send())``` &rarr; ```address.send()```                                                                                                                                                                                                                              |
+| UTR      | Unchecked transfer                         | ```require(address.transfer())``` &rarr; ```address.transfer()```                                                                                                                                                                                                                      |
+| TX       | Authentication through tx.origin           | ```owner == msg.sender```     &rarr; ```owner == tx.origin```                                                                                                                                                                                                                          |
+| DTU      | Delegatecall to untrusted callee           | ```address.delegatecall()``` &rarr; ```function setDelegate(address _addr){addr = _addr} addr.delegatecall()```                                                                                                                                                                        |
+| UR1      | Unused return (Assignment)                 | ```_totalSupply = _totalSupply.sub(amount)``` &rarr; ```_totalSupply = 0; _totalSupply.sub(amount)```                                                                                                                                                                                  |
+| UR2      | Unused return (Initialization + Assignment)| ```uint length = data.decodeU32()``` &rarr; ```uint length = data.decodeU32()```                                                                                                                                                                                                       |
+| TD       | Timestamp dependence                       | ```block.number``` &rarr; ```block.timestamp```                                                                                                                                                                                                                                        |
+| IUO      | Integer underflow/overflow                 | ```totalSupply = totalSupply.add(amount)``` &rarr; ```totalSupply = (totalSupply + amount)```                                                                                                                                                                                          |
+| USD      | Unprotected self-destruct                  | ```function destroy() private { selfdestruct(payable(owner)); }``` &rarr; ```function destroy() public { selfdestruct(payable(owner)); }```                                                                                                                                            |
+| RE       | Reentrancy                                 | ```function withdraw(uint256 amount) public { balances[msg.sender] -= amount; (bool success, ) = msg.sender.call{value: amount}(""); }``` &rarr; ```function withdraw(uint256 amount) public { (bool success, ) = msg.sender.call{value: amount}(""); balances[msg.sender] -= amount; }``` |
 
 
 # Publications
